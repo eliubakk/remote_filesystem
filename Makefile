@@ -2,7 +2,7 @@ CXX = g++
 CXXFLAGS = -g -std=c++11 -Wall -Werror
 DEBUGFLAGS = -DDEBUG
 
-SERVER_LIBS = libfs_server.o -pthread -ldl 
+SERVER_LIBS = libfs_server.o -pthread -ldl
 CLIENT_LIBS = libfs_client.o -ldl
 
 EXECUTABLE = fs
