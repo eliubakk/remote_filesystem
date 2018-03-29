@@ -14,7 +14,7 @@
 #include "fs_user.h"
 
 class filesystem{
-	public:
+	private:
 		struct entry{
 			pthread_rwlock_t lock;
 			uint32_t inode_block;
@@ -23,29 +23,33 @@ class filesystem{
 			entry(uint32_t inode_in = 0);
 		};
 
-		static entry root;
+		entry root;
+		std::unordered_map<std::string, fs_user*> users;
 
-		static std::unordered_map<std::string, fs_user*> users;
+		void send_response(int client, const char *username, std::string response);
+	public:
+		~filesystem();
 
-		static void session_response(int client, const char *username, char *request,
+		bool add_user(const std::string& username, const std::string& password);
+
+		bool user_exists(const std::string& username);
+
+		const char* password(const std::string& username);
+		
+		void session_response(int client, const char *username, char *request,
                       unsigned int request_size);
 
-		static void readblock_response(const char *username, const char *password,
-                   unsigned int session, unsigned int sequence,
-                   const char *pathname, unsigned int offset, void *buf);
+		void readblock_response(int client, const char *username, char *request,
+                      unsigned int request_size);
 
-		static void writeblock_response(const char *username, const char *password,
-                         unsigned int session, unsigned int sequence,
-                         const char *pathname, unsigned int offset,
-                         const void *buf);
+		void writeblock_response(int client, const char *username, char *request,
+                      unsigned int request_size);
 
-		static void create_response(const char *username, const char *password,
-                     unsigned int session, unsigned int sequence,
-                     const char *pathname, char type);
+		void create_response(int client, const char *username, char *request,
+                      unsigned int request_size);
 
-		static void delete_response(const char *username, const char *password,
-                     unsigned int session, unsigned int sequence,
-                     const char *pathname);
+		void delete_response(int client, const char *username, char *request,
+                      unsigned int request_size);
 };
 
 #endif

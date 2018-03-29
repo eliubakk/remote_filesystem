@@ -17,13 +17,14 @@
 using namespace std;
 
 #define INT_MAXDIGITS 10
-//FS_WRITEBLOCK <session> <sequence> <pathname> <block><NULL><data>
-#define FS_MAXDECRYPT 13 + 1 + INT_MAXDIGITS + 1 + INT_MAXDIGITS + 1 + FS_MAXPATHNAME + 1 + 3 + 1 + 512;
 #define FS_MAXREQUESTNAME 13
 
-void request_handler(int client);
+void request_handler(filesystem* fs, int client);
 
-int read_bytes(int client, char* buf, unsigned int length, bool use_delim = false, char delim = '\0');
+int read_bytes(int client, char* buf, 
+				unsigned int length, 
+				bool use_delim = false,
+				char delim = '\0');
 
 int main(int argc, char **argv){
 	unsigned int port = 0;
@@ -34,10 +35,11 @@ int main(int argc, char **argv){
 		port = stoi(argv[1]);
 	}
 
+	filesystem fs;
 	//read in users
 	string username, password;
 	while(cin >> username >> password){
-		filesystem::users[username] = new fs_user(username.c_str(), password.c_str());
+		fs.add_user(username, password);
 	}
 
 	//make socket and allow it to reuse addresses
@@ -65,59 +67,53 @@ int main(int argc, char **argv){
 
 	while(true){
 		int client = accept(sock, (struct sockaddr*) nullptr, (socklen_t*)nullptr);
-		thread request(request_handler, client);
+		thread request(request_handler, &fs, client);
 		request.detach();
 	}
 }
 
-void request_handler(int client){
+void request_handler(filesystem* fs, int client){
 	cout << "New thread client: " << client << endl;
 	char username[FS_MAXUSERNAME + 1];
 	if(!read_bytes(client, username, sizeof(username), true, ' ')){
 		close(client);
 		return;
 	}
-	cout << "username: " << username << endl;
 
-	if(filesystem::users.find(username) == filesystem::users.end()){
+	if(!fs->user_exists(username)){
 		close(client);
 		return;
 	}
+	cout << "user exists" << endl;
 
 	char request_size[INT_MAXDIGITS + 1];
 	if(!read_bytes(client, request_size, sizeof(request_size), true)){
 		close(client);
 		return;
 	}
-	cout << "request size: " << request_size << endl;
 	unsigned int encrypted_size = stoi(request_size);
-	cout << "encrypted_size: " << encrypted_size << endl; 
+	cout << "data size got" << endl; 
 	char encrypted_message[encrypted_size + 1];
 	read_bytes(client, encrypted_message, sizeof(encrypted_message) - 1);
-	cout << "bytes read" << endl;
-	//close(client);
-
-	cout << "encrypted_message: " << encrypted_message << endl;
+	cout << "data got" << endl;
 
 	unsigned int decrypted_size = 0;
 	char* decrypted_message = 
-				(char*)fs_decrypt(filesystem::users[username]->password(), 
-				(void*)encrypted_message, 
-				encrypted_size, &decrypted_size);
+				(char*)fs_decrypt(fs->password(username), 
+							(void*)encrypted_message, 
+							encrypted_size, &decrypted_size);
 	if(decrypted_message == nullptr){
 		return;
 	}
-	//cout << "decrypted_message: " << decrypted_message << endl;
+	cout << "message decrypted" << endl;
 
 	char request[decrypted_size + 1];
 	strncpy(request, decrypted_message, decrypted_size);
 	request[decrypted_size] = '\0';
-	//char* request_name = strtok(decrypted_message, ' ');
-	cout << "request: " << request << endl;
 
 	switch(request[3]){
 		case 'S':
-			filesystem::session_response(client, username, request, decrypted_size + 1);
+			fs->session_response(client, username, request, decrypted_size + 1);
 			break;
 		//TODO: other requests.
 	};
