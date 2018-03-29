@@ -19,10 +19,12 @@ class fs_user{
 		char pw[FS_MAXPASSWORD + 1];
 		std::unordered_map<unsigned int, unsigned int> sessions;
 
-		static uint64_t SESSION_ID ;
+		static unsigned int SESSION_ID;
 
 	public:
 		fs_user(const char* name_in, const char* pw_in);
+
+		const char* password(); 
 
 		unsigned int create_session(unsigned int seq);
 

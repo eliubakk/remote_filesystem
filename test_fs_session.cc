@@ -7,7 +7,7 @@ using namespace std;
 int main(int argc, char *argv[]){
     char *server;
     int server_port;
-    unsigned int session, seq = 0;
+    unsigned int session = 6, seq = 0;
 
     if (argc != 3) {
         cout << "error: usage: " << argv[0] << " <server> <serverPort>\n";
@@ -17,5 +17,7 @@ int main(int argc, char *argv[]){
     server_port = atoi(argv[2]);
 
     fs_clientinit(server, server_port);
-    fs_session("user1", "password1", &session, seq++);
+    cout << "PRE_SESSION: " << session << endl;
+    cout << "return val: " << fs_session("user1", "password1", &session, seq++) << endl;
+    cout << "POST_SESSION: " << session << endl;
 }

@@ -17,6 +17,8 @@ SOURCES := $(filter-out $(TESTSOURCES), $(SOURCES))
 OBJECTS = $(SOURCES:%.cc=%.o)
 
 all: $(EXECUTABLE) alltests
+	./createfs
+	export FS_CRYPT=AES
 
 release: CXXFLAGS += -DNDEBUG
 release: all

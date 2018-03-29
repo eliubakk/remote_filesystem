@@ -8,7 +8,7 @@
 #define _FILESYSTEM_H_
 
 #include <sys/types.h>
-#include <mutex>
+#include <pthread.h>
 #include <string>
 #include <unordered_map>
 #include "fs_user.h"
@@ -16,7 +16,7 @@
 class filesystem{
 	public:
 		struct entry{
-			std::mutex lock;
+			pthread_rwlock_t lock;
 			uint32_t inode_block;
 			std::unordered_map<std::string, entry*> *entries; 
 
@@ -27,8 +27,8 @@ class filesystem{
 
 		static std::unordered_map<std::string, fs_user*> users;
 
-		static void session_response(const char *username, const char *password,
-                      unsigned int *session_ptr, unsigned int sequence);
+		static void session_response(int client, const char *username, char *request,
+                      unsigned int request_size);
 
 		static void readblock_response(const char *username, const char *password,
                    unsigned int session, unsigned int sequence,
