@@ -19,8 +19,8 @@ using namespace std;
 #define INT_MAXDIGITS 10
 #define FS_MAXREQUESTNAME 13
 
+// ------ Function Declarations ------ //
 void request_handler(filesystem* fs, int client);
-
 int read_bytes(int client, char* buf, 
 				unsigned int length, 
 				bool use_delim = false,
@@ -29,6 +29,7 @@ int read_bytes(int client, char* buf,
 int main(int argc, char **argv){
 	unsigned int port = 0;
 
+	//Check validity of command line args, set port # if given
 	if(argc > 2){
 		return -1;
 	}else if(argc == 2){
@@ -36,17 +37,18 @@ int main(int argc, char **argv){
 	}
 
 	filesystem fs;
-	//read in users
+
+	//Read in users
 	string username, password;
 	while(cin >> username >> password){
 		fs.add_user(username, password);
 	}
 
-	//make socket and allow it to reuse addresses
+	//Make socket and allow it to reuse addresses
 	int sock = socket(AF_INET, SOCK_STREAM, 0);
 	setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, NULL, 0);
 
-	//assign socket to a port
+	//Assign socket to a port
 	struct sockaddr_in addr;
 	memset(&addr, 0, sizeof(addr));
 	addr.sin_family = AF_INET;
@@ -56,7 +58,7 @@ int main(int argc, char **argv){
 		exit(1);
 	}
 
-	//get port number and print
+	//Get port number and print
 	unsigned int addr_length =  sizeof(addr);
 	if(getsockname(sock, (struct sockaddr*) &addr, &addr_length) == -1){
 		exit(1);
@@ -65,6 +67,7 @@ int main(int argc, char **argv){
 
 	listen(sock, 10);
 
+	//Continuously listen for, accept, and handle requests
 	while(true){
 		int client = accept(sock, (struct sockaddr*) nullptr, (socklen_t*)nullptr);
 		thread request(request_handler, &fs, client);
@@ -72,20 +75,26 @@ int main(int argc, char **argv){
 	}
 }
 
+//Request handler
+//MODIFIES, REQUIRES, EFFECTS......???? (do we want to do this again?)
 void request_handler(filesystem* fs, int client){
 	cout << "New thread client: " << client << endl;
+
+	//Read username from cleartext request header
 	char username[FS_MAXUSERNAME + 1];
 	if(!read_bytes(client, username, sizeof(username), true, ' ')){
 		close(client);
 		return;
 	}
 
+	//Close connection if user does not exist in filesystem
 	if(!fs->user_exists(username)){
 		close(client);
 		return;
 	}
 	cout << "user exists" << endl;
 
+	//Read size of encrypted request from cleartext request header
 	char request_size[INT_MAXDIGITS + 1];
 	if(!read_bytes(client, request_size, sizeof(request_size), true)){
 		close(client);
@@ -93,10 +102,13 @@ void request_handler(filesystem* fs, int client){
 	}
 	unsigned int encrypted_size = stoi(request_size);
 	cout << "data size got" << endl; 
+
+	//Read in encrypted request
 	char encrypted_message[encrypted_size + 1];
 	read_bytes(client, encrypted_message, sizeof(encrypted_message) - 1);
 	cout << "data got" << endl;
 
+	//Decrypt request
 	unsigned int decrypted_size = 0;
 	char* decrypted_message = 
 				(char*)fs_decrypt(fs->password(username), 
@@ -111,6 +123,7 @@ void request_handler(filesystem* fs, int client){
 	strncpy(request, decrypted_message, decrypted_size);
 	request[decrypted_size] = '\0';
 
+	//Handle request
 	switch(request[3]){
 		case 'S':
 			fs->session_response(client, username, request, decrypted_size + 1);
@@ -122,6 +135,9 @@ void request_handler(filesystem* fs, int client){
 	close(client);
 }
 
+
+//Helper function, read data from client into a buffer
+//MODIFIES, REQUIRES, EFFECTS......???? (do we want to do this again?)
 int read_bytes(int client, char* buf, unsigned int length, bool use_delim, char delim){
 	memset(buf, 0, length);
 	int return_val = -1;
