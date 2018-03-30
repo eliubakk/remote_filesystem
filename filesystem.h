@@ -33,7 +33,7 @@ class filesystem{
 		void send_response(int client, const char *username, std::string response);
 		std::vector<char *> split_request(char *request, const std::string &token);
 		int create_entry(const char* username, char *path, char* type);
-		entry* recurse_filesystem(const char *username, std::vector<char*> &split_path, unsigned int path_index, entry* dir, fs_inode* &inode, char req_type);
+		entry* recurse_filesystem(const char *username, std::vector<char*> &split_path, unsigned int path_index, entry* dir, fs_inode*& inode, char req_type);
 		unsigned int next_free_disk_block();
 
 	public:

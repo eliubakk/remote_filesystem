@@ -85,11 +85,15 @@ void filesystem::create_response(int client, const char *username, char *request
 	//FS_CREATE <session> <sequence> <pathname> <type><NULL>
 	if (!users[username]->session_request(stoi(request_items[SESSION]), stoi(request_items[SEQUENCE])))
 		return;
-
+	cout << "sequence valid" << endl;
 	if (create_entry(username, request_items[PATH], request_items[TYPE]) == -1)
 		return;
 
-
+	cout << "entry created, sending response..." << endl;
+	//<size><NULL><session> <sequence><NULL>
+	ostringstream response;
+	response << request_items[SESSION] << " " << request_items[SEQUENCE];
+	send_response(client, username, response.str());
 }
 
 void filesystem::delete_response(int client, const char *username, char *request,
@@ -118,53 +122,91 @@ vector<char *> filesystem::split_request(char *request, const string &token) {
 	vector<char *> split;
 	split.push_back(strtok(request, token.c_str()));
 	while (split.back()) {
+		cout << split.back() << endl;
 		split.push_back(strtok(0, token.c_str()));
 	}
-
+	split.pop_back();
+	cout << "size: " << split.size() << endl;
 	return split;
 }
 
 
 int filesystem::create_entry(const char* username, char *path, char* type) {
+	cout << "checking if path is valid..." << endl;
+
 	vector<char *> split_path = split_request(path, "/");
+	cout << "path split" << endl;
+
 
 	unsigned int new_entry_inode_block = next_free_disk_block();
 	if (new_entry_inode_block == FS_DISKSIZE)
 		return -1;
+	cout << "have enough space for new entry" << endl;
 	disk_blocks[new_entry_inode_block] = 1;
 
-	entry* parent_entry = nullptr;
+	entry* parent_entry = &root;
 	fs_inode* inode = new fs_inode;
-	if (root.entries.find(split_path[1]) != root.entries.end()) {
-		disk_readblock(0, inode);
-		parent_entry = recurse_filesystem(username, split_path, 1, root.entries[split_path[1]], inode, 'c');
+	disk_readblock(0, inode);
+	cout << split_path[0] << endl;
+	if (root.entries.find(split_path[0]) != root.entries.end()) {
+		cout << "recurse_filesystem to find parent_entry" << endl;
+		parent_entry = recurse_filesystem(username, split_path, 0, root.entries[split_path[1]], inode, 'c');
+	}else{
+		cout << "path is in root" << endl;
+	}
+	
+	if(parent_entry == nullptr){
+		cout << "path invald" << endl;
+		delete inode;
+		return -1;
 	}
 
+	cout << "parent_entry found, path valid" << endl;
+	cout << "parent_entry->inode_block: " << parent_entry->inode_block << endl;
+	fs_direntry parent_directory[FS_DIRENTRIES];
+	
 	if (inode->size * FS_DIRENTRIES == parent_entry->entries.size()) {
+		cout << "allocate disk block in parent_entry" << endl;
 		unsigned int next_disk_block = next_free_disk_block();
 		if (next_disk_block == FS_DISKSIZE && inode->size < FS_MAXFILEBLOCKS) {
 			disk_blocks[new_entry_inode_block] = 0;
 			delete inode;
 			return -1;
 		}
+		cout << "have enough space for new parent_entry block" << endl;
 		disk_blocks[next_disk_block] = 1;
+		inode->blocks[inode->size] = next_disk_block;
 		inode->size += 1;
+		memset(parent_directory, 0, FS_BLOCKSIZE);
+	}else{
+		disk_readblock(inode->blocks[inode->size - 1], parent_directory);
 	}
 
 	parent_entry->entries[split_path.back()] = new entry(new_entry_inode_block, parent_entry->entries.size());
 	fs_direntry new_direntry;
 	new_direntry.inode_block = new_entry_inode_block;
 	strcpy(new_direntry.name, split_path.back());
-	memcpy((void*)(inode->blocks + ((parent_entry->parent_blocks_index)*sizeof(fs_direntry))), 
-			(void*)&new_direntry, sizeof(new_direntry));
+	cout << "sizeof(new_direntry): " << sizeof(new_direntry) << endl;
+	cout << "parent_blocks_index: " << parent_entry->entries[split_path.back()]->parent_blocks_index << endl;
+	cout << "sizeof(fs_direntry): " << sizeof(fs_direntry) << endl;
+	cout << "inode->blocks: " << inode->blocks << endl;
+	
+	//memcpy((void*)(inode->blocks + ((parent_entry->entries[split_path.back()]->parent_blocks_index)*sizeof(fs_direntry))), 
+	//		(void*)&new_direntry, sizeof(new_direntry));
+	parent_directory[parent_entry->entries[split_path.back()]->parent_blocks_index] = new_direntry;
+	cout << "new_direntry copied into parent_entry" << endl;
 
 	fs_inode new_inode;
 	new_inode.type = type[0];
 	strcpy(new_inode.owner, username);
 	new_inode.size = 0;
+	cout << "new entry created" << endl;
 
+	disk_writeblock(inode->blocks[inode->size - 1], parent_directory);
 	disk_writeblock(new_entry_inode_block, &new_inode);
 	disk_writeblock(parent_entry->inode_block, inode);
+	cout << "entry written to disk" << endl;
+
 	delete inode;
 	return 0;
 }
