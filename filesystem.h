@@ -11,23 +11,33 @@
 #include <pthread.h>
 #include <string>
 #include <unordered_map>
+#include <vector>
+#include <bitset>
 #include "fs_user.h"
 
 class filesystem{
 	private:
 		struct entry{
 			pthread_rwlock_t lock;
-			uint32_t inode_block;
-			std::unordered_map<std::string, entry*> *entries; 
+			unsigned int inode_block;
+			unsigned int parent_blocks_index;
+			std::unordered_map<std::string, entry*> entries; 
 
-			entry(uint32_t inode_in = 0);
+			entry(unsigned int inode_block_in = 0, unsigned int parent_blocks_index_in = 0);
 		};
 
 		entry root;
 		std::unordered_map<std::string, fs_user*> users;
+		std::bitset<FS_DISKSIZE> disk_blocks;
 
 		void send_response(int client, const char *username, std::string response);
+		std::vector<char *> split_request(char *request, const std::string &token);
+		int create_entry(const char* username, char *path, char* type);
+		entry* recurse_filesystem(const char *username, std::vector<char*> &split_path, unsigned int path_index, entry* dir, fs_inode* &inode, char req_type);
+		unsigned int next_free_disk_block();
+
 	public:
+		filesystem();
 		~filesystem();
 
 		bool add_user(const std::string& username, const std::string& password);

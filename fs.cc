@@ -115,7 +115,9 @@ void request_handler(filesystem* fs, int client){
 		case 'S':
 			fs->session_response(client, username, request, decrypted_size + 1);
 			break;
-		//TODO: other requests.
+		case 'C':
+			fs->create_response(client, username, request, decrypted_size + 1);
+			break;
 	};
 	close(client);
 }

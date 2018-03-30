@@ -19,5 +19,8 @@ unsigned int fs_user::create_session(unsigned int seq){
 }
 
 bool fs_user::session_request(unsigned int ID, unsigned int seq){
-	assert(false);
+	if (sessions[ID] >= seq) 
+		return false;
+	sessions[ID] = seq;
+	return true;
 }
