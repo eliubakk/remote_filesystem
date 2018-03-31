@@ -63,7 +63,9 @@ int main(int argc, char **argv){
 	if(getsockname(sock, (struct sockaddr*) &addr, &addr_length) == -1){
 		exit(1);
 	}
+	cout_lock.lock();
 	cout << "\n@@@ port " << ntohs(addr.sin_port) << endl;
+	cout_lock.unlock();
 
 	listen(sock, 10);
 
@@ -78,7 +80,9 @@ int main(int argc, char **argv){
 //Request handler
 //MODIFIES, REQUIRES, EFFECTS......???? (do we want to do this again?)
 void request_handler(filesystem* fs, int client){
+	cout_lock.lock();
 	cout << "New thread client: " << client << endl;
+	cout_lock.unlock();
 
 	//Read username from cleartext request header
 	char username[FS_MAXUSERNAME + 1];
@@ -92,7 +96,9 @@ void request_handler(filesystem* fs, int client){
 		close(client);
 		return;
 	}
+	cout_lock.lock();
 	cout << "user exists" << endl;
+	cout_lock.unlock();
 
 	//Read size of encrypted request from cleartext request header
 	char request_size[INT_MAXDIGITS + 1];
@@ -101,12 +107,16 @@ void request_handler(filesystem* fs, int client){
 		return;
 	}
 	unsigned int encrypted_size = stoi(request_size);
+	cout_lock.lock();
 	cout << "data size got" << endl; 
+	cout_lock.unlock();
 
 	//Read in encrypted request
 	char encrypted_message[encrypted_size + 1];
 	read_bytes(client, encrypted_message, sizeof(encrypted_message) - 1);
+	cout_lock.lock();
 	cout << "data got" << endl;
+	cout_lock.unlock();
 
 	//Decrypt request
 	unsigned int decrypted_size = 0;
@@ -117,7 +127,9 @@ void request_handler(filesystem* fs, int client){
 	if(decrypted_message == nullptr){
 		return;
 	}
+	cout_lock.lock();
 	cout << "message decrypted" << endl;
+	cout_lock.unlock();
 
 	char request[decrypted_size + 1];
 	strncpy(request, decrypted_message, decrypted_size);
