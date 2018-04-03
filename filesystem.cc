@@ -6,27 +6,20 @@
 #include <sstream>
 #include <sys/socket.h>
 #include <iostream>
+#include <stdexcept>
 
 using namespace std;
 
-// ----- For explicitly indexing into vector with request args ----- //
-#define REQUEST_NAME 0
-#define SESSION 1
-#define SEQUENCE 2
-#define PATH 3
-#define BLOCK 4
-#define TYPE 4
+typedef int (filesystem::*handler_func_t)(const char*, vector<char*>&);
 
-
-//Internal entry constructor
-filesystem::entry::entry(unsigned int inode_block_in, unsigned int parent_blocks_index_in) 
-: inode_block(inode_block_in), parent_blocks_index(parent_blocks_index_in) {}
-
+#define MAX_REQUEST_NAME 13
 
 //Filesystem constructor
 filesystem::filesystem() {
-	//Init root directory
-	disk_blocks[0] = 1;
+	//Init free blocks, block zero is used for root
+	for(unsigned int i = 1; i < FS_DISKSIZE; ++i){
+		free_blocks.push_back(i);
+	}
 }
 
 
@@ -57,202 +50,102 @@ const char* filesystem::password(const string& username){
 	return users[username]->password();
 }
 
-
-// ----- FS_SESSION() RESPONSE ----- //
-//Request format:  FS_SESSION <session> <sequence><NULL>
-//Response format: <size><NULL><session> <sequence><NULL>
-void filesystem::session_response(int client, const char *username, char *request,
+void filesystem::handle_request(int client, const char *username, char *request,
 							unsigned int request_size){
 	cout_lock.lock();
 	cout << "building session response..." << endl;
 	cout_lock.unlock();
 
-	vector<char *> request_items = split_request(request, " ");
-	if(strcmp(request_items[REQUEST_NAME], "FS_SESSION"))
+	handler_func_t handler = nullptr;
+	vector<char *> request_args = split_request(request, " ");
+	char request_name[MAX_REQUEST_NAME + 1];
+	//Handle request
+	switch(request[3]){
+		case 'S':
+			strcpy(request_name, "FS_SESSION");
+			handler = &filesystem::new_session;
+			break;
+		case 'C':
+			strcpy(request_name, "FS_CREATE");
+			handler = &filesystem::create_entry;
+			break;
+		case 'D':
+			strcpy(request_name, "FS_DELETE");
+			handler = &filesystem::delete_entry;
+			break;
+		case 'R':
+			strcpy(request_name, "FS_READBLOCK");
+			handler = &filesystem::access_entry;
+			request_args.push_back(to_string(READ));
+			break;
+		case 'W':
+			strcpy(request_name, "FS_WRITEBLOCK");
+			handler = &filesystem::access_entry;
+			request_args.push_back(to_string(WRITE));
+			break;
+		default:
+			return;
+	};
+
+	if(strcmp(request_args[REQUEST_NAME], request_name))
 		return;
 
 	cout_lock.lock();
 	cout << "request_name: " << request_items[REQUEST_NAME] << endl;
 	cout_lock.unlock();	
 
-	//Given session # is meaningless, create new session ID with given sequence #
-	unsigned int sequence = stoi(request_items[SEQUENCE]);
-	unsigned int session = users[username]->create_session(sequence);
+	if(this->*handler(username, request_args) == -1)
+		return;
 
 	//Send response back to client on success
 	ostringstream response;
-	response << to_string(session) << " " << to_string(sequence);
+	response << request_items[SESSION] << " " << request_items[SEQUENCE];
 	send_response(client, username, response.str());
 	return;
 }
 
 
-// ----- FS_READBLOCK() RESPONSE -----//
-//Request Format:  FS_READBLOCK <session> <sequence> <pathname> <block><NULL>
-//Response Format: <size><NULL><session> <sequence><NULL><data>
-void filesystem::readblock_response(int client, const char *username, char *request,
-							unsigned int request_size){
-	assert(false);
-}
-
-
-// ----- FS_WRITEBLOCK() RESPONSE -----//
-//Request Format:  FS_WRITEBLOCK <session> <sequence> <pathname> <block><NULL><data>
-//Response Format: <size><NULL><session> <sequence><NULL>
-void filesystem::writeblock_response(int client, const char *username, char *request,
-							unsigned int request_size){
-	vector<char *> request_items = split_request(request, " ");
-	if(strcmp(request_items[REQUEST_NAME], "FS_WRITEBLOCK"))
-		return;
-
-	cout_lock.lock();
-	cout << "request_name: " << request_items[REQUEST_NAME] << endl;
-	cout_lock.unlock();
-
-	//Check validity of session/sequence
-	if (!users[username]->session_request(stoi(request_items[SESSION]), stoi(request_items[SEQUENCE])))
-		return;
-
-	cout_lock.lock();
-	cout << "sequence valid" << endl;
-	cout_lock.unlock();
-
-	fs_inode* inode;
-	entry* parent_entry = recurse_filesystem(username, request_items[PATH], inode, 'w');
-
-
-
-	//Path provided in fs_create() is invalid
-	if(parent_entry == nullptr){
-		cout_lock.lock();
-		cout << "path invalid" << endl;
-		cout_lock.unlock();
-
-		delete inode;
-		return;
+// ----- FS_SESSION() RESPONSE ----- //
+//Request format:  FS_SESSION <session> <sequence><NULL>
+//Response format: <size><NULL><session> <sequence><NULL>
+int filesystem::new_session(const char *username, vector<char *>& args){
+	//Given session # is meaningless, create new session ID with given sequence #
+	try{
+		unsigned int sequence = stoul(args[SEQUENCE]);
+		args[SESSION] = to_string(users[username]->create_session(sequence));
+	} catch(...){
+		return -1;
 	}
-
-	cout_lock.lock();
-	cout << "parent_entry found, path valid" << endl;
-	cout << "parent_entry->inode_block: " << parent_entry->inode_block << endl;
-	cout_lock.unlock();
-
-	//Send response back to client on success
-	cout_lock.lock();
-	cout << "entry created, sending response..." << endl;
-	cout_lock.unlock();
-	ostringstream response;
-	response << request_items[SESSION] << " " << request_items[SEQUENCE];
-	send_response(client, username, response.str());
+	return 0;
 }
-
 
 // ----- FS_CREATE() RESPONSE -----//
 //Request Format:  FS_CREATE <session> <sequence> <pathname> <type><NULL>
 //Response Format: <size><NULL><session> <sequence><NULL>
-void filesystem::create_response(int client, const char *username, char *request,
-							unsigned int request_size){
-	vector<char *> request_items = split_request(request, " ");
-	if(strcmp(request_items[REQUEST_NAME], "FS_CREATE"))
-		return;
-
-	cout_lock.lock();
-	cout << "request_name: " << request_items[REQUEST_NAME] << endl;
-	cout_lock.unlock();
-
+int filesystem::create_entry(const char *username, vector<char *>& args){
 	//Check validity of session/sequence
-	if (!users[username]->session_request(stoi(request_items[SESSION]), stoi(request_items[SEQUENCE])))
-		return;
-
-	cout_lock.lock();
-	cout << "sequence valid" << endl;
-	cout_lock.unlock();
-
-	//Create internal/external entry and inode for new directory/file
-	if (create_entry(username, request_items[PATH], request_items[TYPE]) == -1)
-		return;
-
-	//Send response back to client on success
-	cout_lock.lock();
-	cout << "entry created, sending response..." << endl;
-	cout_lock.unlock();
-	ostringstream response;
-	response << request_items[SESSION] << " " << request_items[SEQUENCE];
-	send_response(client, username, response.str());
-}
-
-
-// ----- FS_DELETE() RESPONSE -----//
-//Request Format:  FS_DELETE <session> <sequence> <pathname><NULL>
-//Response Format: <size><NULL><session> <sequence><NULL>
-void filesystem::delete_response(int client, const char *username, char *request,
-							unsigned int request_size){
-	assert(false);
-}
-
-
-//Helper function, sends responses back to client after successfully handling request
-void filesystem::send_response(int client, const char *username, string response){
-	cout_lock.lock();
-	cout << "response built" << endl;
-	cout_lock.unlock();
-
-	unsigned int cipher_size = 0;
-	const char* cipher = (char*) fs_encrypt(
-		users[username]->password(), (void*)response.c_str(),
-		response.length() + 1, &cipher_size);
-
-	cout_lock.lock();
-	cout << "response encrypted" << endl;
-	//cout << "cipher_size: " << cipher_size << endl;
-	cout_lock.unlock();
-
-	string header(to_string(cipher_size));
-	send(client, header.c_str(), header.length() + 1, 0);
-	send(client, cipher, cipher_size, 0);
-
-	cout_lock.lock();
-	cout << "session response sent" << endl;
-	cout_lock.unlock();
-}
-
-
-//Helper function, splits char * into segments delimited by 'token'
-vector<char *> filesystem::split_request(char *request, const string &token) {
-	vector<char *> split;
-	split.push_back(strtok(request, token.c_str()));
-	while (split.back()) {
-		cout_lock.lock();
-		cout << split.back() << endl;
-		cout_lock.unlock();
-		split.push_back(strtok(0, token.c_str()));
+	try{
+		if (!users[username]->session_request(stoul(request_items[SESSION]),
+											  stoul(request_items[SEQUENCE])))
+			return -1;
+	} catch(...){
+		return -1;
 	}
-	split.pop_back();
-
-	cout_lock.lock();
-	cout << "size: " << split.size() << endl;
-	cout_lock.unlock();
-	return split;
-}
-
-
-//Helper function, for create_response(), check path validity and 
-//create new internal and external filesystem entry/inode
-int filesystem::create_entry(const char* username, char *path, char* type) {
 
 	//Find smallest free disk block for new entry's inode, mark it as used
-	unsigned int new_entry_inode_block = next_free_disk_block();
-	if (new_entry_inode_block == FS_DISKSIZE)
+	if(free_blocks.empty())
 		return -1;
+	unsigned int new_entry_inode_block = free_blocks.front();
+	free_blocks.pop();
+
 	cout_lock.lock();
 	cout << "have enough space for new entry" << endl;
 	cout_lock.unlock();
-	disk_blocks[new_entry_inode_block] = 1;
 
 	fs_inode* inode;
-	entry* parent_entry = recurse_filesystem(username, path, inode, 'c');
+	fs_direntry* parent_entry = recurse_filesystem(username, args[PATH], inode, 'c');
 	cout_lock.lock();
-	cout << "path after recurse: " << path << endl;
+	cout << "path after recurse: " << args[PATH] << endl;
 	cout_lock.unlock();
 
 	//Path provided in fs_create() is invalid
@@ -262,6 +155,7 @@ int filesystem::create_entry(const char* username, char *path, char* type) {
 		cout_lock.unlock();
 
 		delete inode;
+		delete parent_entry;
 		return -1;
 	}
 
@@ -286,6 +180,7 @@ int filesystem::create_entry(const char* username, char *path, char* type) {
 		if (next_disk_block == FS_DISKSIZE || inode->size == FS_MAXFILEBLOCKS) {
 			disk_blocks[new_entry_inode_block] = 0;
 			delete inode;
+			delete parent_entry;
 			return -1;
 		}
 		cout_lock.lock();
@@ -359,9 +254,112 @@ int filesystem::create_entry(const char* username, char *path, char* type) {
 	//Delete new inode object created above
 	delete inode;
 	return 0;
+
 }
 
-filesystem::entry* filesystem::recurse_filesystem(const char *username, char* path, fs_inode*& inode, char req_type){
+// ----- FS_DELETE() RESPONSE -----//
+//Request Format:  FS_DELETE <session> <sequence> <pathname><NULL>
+//Response Format: <size><NULL><session> <sequence><NULL>
+void filesystem::delete_entry(const char *username, std::vector<char*>& args){
+	assert(false);
+}
+
+// ----- FS_READBLOCK() RESPONSE -----//
+//Request Format:  FS_READBLOCK <session> <sequence> <pathname> <block><NULL>
+//Response Format: <size><NULL><session> <sequence><NULL><data>
+// ----- FS_WRITEBLOCK() RESPONSE -----//
+//Request Format:  FS_WRITEBLOCK <session> <sequence> <pathname> <block><NULL><data>
+//Response Format: <size><NULL><session> <sequence><NULL>
+void filesystem::access_entry(const char *username, std::vector<char*>& args){
+	vector<char *> request_items = split_request(request, " ");
+	if(strcmp(request_items[REQUEST_NAME], "FS_WRITEBLOCK"))
+		return;
+
+	cout_lock.lock();
+	cout << "request_name: " << request_items[REQUEST_NAME] << endl;
+	cout_lock.unlock();
+
+	//Check validity of session/sequence
+	if (!users[username]->session_request(stoi(request_items[SESSION]), stoi(request_items[SEQUENCE])))
+		return;
+
+	cout_lock.lock();
+	cout << "sequence valid" << endl;
+	cout_lock.unlock();
+
+	fs_inode* inode;
+	entry* parent_entry = recurse_filesystem(username, request_items[PATH], inode, 'w');
+
+
+
+	//Path provided in fs_create() is invalid
+	if(parent_entry == nullptr){
+		cout_lock.lock();
+		cout << "path invalid" << endl;
+		cout_lock.unlock();
+
+		delete inode;
+		return;
+	}
+
+	cout_lock.lock();
+	cout << "parent_entry found, path valid" << endl;
+	cout << "parent_entry->inode_block: " << parent_entry->inode_block << endl;
+	cout_lock.unlock();
+
+	//Send response back to client on success
+	cout_lock.lock();
+	cout << "entry created, sending response..." << endl;
+	cout_lock.unlock();
+	ostringstream response;
+	response << request_items[SESSION] << " " << request_items[SEQUENCE];
+	send_response(client, username, response.str());
+}
+
+//Helper function, sends responses back to client after successfully handling request
+void filesystem::send_response(int client, const char *username, string response){
+	cout_lock.lock();
+	cout << "response built" << endl;
+	cout_lock.unlock();
+
+	unsigned int cipher_size = 0;
+	const char* cipher = (char*) fs_encrypt(
+		users[username]->password(), (void*)response.c_str(),
+		response.length() + 1, &cipher_size);
+
+	cout_lock.lock();
+	cout << "response encrypted" << endl;
+	cout_lock.unlock();
+
+	string header(to_string(cipher_size));
+	send(client, header.c_str(), header.length() + 1, 0);
+	send(client, cipher, cipher_size, 0);
+
+	cout_lock.lock();
+	cout << "session response sent" << endl;
+	cout_lock.unlock();
+}
+
+
+//Helper function, splits char * into segments delimited by 'token'
+vector<char *> filesystem::split_request(char *request, const string &token) {
+	vector<char *> split;
+	split.push_back(strtok(request, token.c_str()));
+	while (split.back()) {
+		cout_lock.lock();
+		cout << split.back() << endl;
+		cout_lock.unlock();
+		split.push_back(strtok(0, token.c_str()));
+	}
+	split.pop_back();
+
+	cout_lock.lock();
+	cout << "size: " << split.size() << endl;
+	cout_lock.unlock();
+	return split;
+}
+
+fs_direntry* filesystem::recurse_filesystem(const char *username, char* path, fs_inode*& inode, char req_type){
 	//Split given path into individual directories
 	vector<char *> split_path = split_request(path, "/");
 	cout_lock.lock();
@@ -383,8 +381,8 @@ filesystem::entry* filesystem::recurse_filesystem(const char *username, char* pa
 }
 
 //FIX THIS!!!!!!!!!!!
-filesystem::entry* filesystem::recurse_filesystem_helper(const char* username, vector<char*> &split_path, 
-						  unsigned int path_index, entry* dir, 
+fs_direntry* filesystem::recurse_filesystem_helper(const char* username, vector<char*> &split_path, 
+						  unsigned int path_index, fs_direntry* dir, 
 						  fs_inode* &inode, char req_type) {
 	cout_lock.lock();
 	cout << "In directory: " << split_path[path_index] << endl;
@@ -407,13 +405,6 @@ filesystem::entry* filesystem::recurse_filesystem_helper(const char* username, v
 			return nullptr;
 	}
 
-	/*//Directory is empty or doesn't exist
-	if (inode->size == 0 
-		|| dir->entries.find(split_path[path_index]) == dir->entries.end()) {
-		
-		return nullptr;
-	}*/
-
 	//This will probably need to change... this might be considered caching, which we should not do
 	if (dir->entries.find(split_path[path_index]) != dir->entries.end()) {
 		disk_readblock(dir->entries[split_path[path_index]]->inode_block, inode);
@@ -422,26 +413,3 @@ filesystem::entry* filesystem::recurse_filesystem_helper(const char* username, v
 
 	return nullptr;
 }
-
-
-//Helper function, find lowest free disk block. DOES NOT RESERVE BLOCK, just returns it's #
-unsigned int filesystem::next_free_disk_block() {
-	for (unsigned int i = 0; i < FS_DISKSIZE; ++i) {
-		if (!disk_blocks[i]) {return i;}
-	}
-	return FS_DISKSIZE;
-}
-
-
-/*
-//Internal entry does not mirror disk
-	unsigned int num_direntries = fs_inode->size * FS_DIRENTRIES;
-	if (num_direntries != dir->entries.size()) {
-		for (int i = 0; i < num_direntries; ++i) {
-			fs_direntry temp;
-			memcpy((void*)&temp, (void*)inode->blocks+(i*sizeof(fs_direntry)), sizeof(fs_direntry));
-			dir->entries[temp->name] = new entry(temp->inode_block);
-		}
-	}
-*/
-

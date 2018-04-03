@@ -136,24 +136,7 @@ void request_handler(filesystem* fs, int client){
 	strncpy(request, decrypted_message, decrypted_size);
 	request[decrypted_size] = '\0';
 
-	//Handle request
-	switch(request[3]){
-		case 'S':
-			fs->session_response(client, username, request, decrypted_size + 1);
-			break;
-		case 'C':
-			fs->create_response(client, username, request, decrypted_size + 1);
-			break;
-		case 'D':
-			fs->delete_response(client, username, request, decrypted_size + 1);
-			break;
-		case 'R':
-			fs->readblock_response(client, username, request, decrypted_size + 1);
-			break;
-		case 'W':
-			fs->writeblock_response(client, username, request, decrypted_size + 1);
-			break;
-	};
+	fs->handle_request(client, username, request, decrypted_size + 1)
 	close(client);
 }
 
