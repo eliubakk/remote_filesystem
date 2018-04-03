@@ -101,7 +101,49 @@ void filesystem::readblock_response(int client, const char *username, char *requ
 //Response Format: <size><NULL><session> <sequence><NULL>
 void filesystem::writeblock_response(int client, const char *username, char *request,
 							unsigned int request_size){
-	assert(false);
+	vector<char *> request_items = split_request(request, " ");
+	if(strcmp(request_items[REQUEST_NAME], "FS_WRITEBLOCK"))
+		return;
+
+	cout_lock.lock();
+	cout << "request_name: " << request_items[REQUEST_NAME] << endl;
+	cout_lock.unlock();
+
+	//Check validity of session/sequence
+	if (!users[username]->session_request(stoi(request_items[SESSION]), stoi(request_items[SEQUENCE])))
+		return;
+
+	cout_lock.lock();
+	cout << "sequence valid" << endl;
+	cout_lock.unlock();
+
+	fs_inode* inode;
+	entry* parent_entry = recurse_filesystem(username, request_items[PATH], inode, 'w');
+
+
+
+	//Path provided in fs_create() is invalid
+	if(parent_entry == nullptr){
+		cout_lock.lock();
+		cout << "path invalid" << endl;
+		cout_lock.unlock();
+
+		delete inode;
+		return;
+	}
+
+	cout_lock.lock();
+	cout << "parent_entry found, path valid" << endl;
+	cout << "parent_entry->inode_block: " << parent_entry->inode_block << endl;
+	cout_lock.unlock();
+
+	//Send response back to client on success
+	cout_lock.lock();
+	cout << "entry created, sending response..." << endl;
+	cout_lock.unlock();
+	ostringstream response;
+	response << request_items[SESSION] << " " << request_items[SEQUENCE];
+	send_response(client, username, response.str());
 }
 
 
@@ -162,7 +204,7 @@ void filesystem::send_response(int client, const char *username, string response
 
 	cout_lock.lock();
 	cout << "response encrypted" << endl;
-	cout << "cipher_size: " << cipher_size << endl;
+	//cout << "cipher_size: " << cipher_size << endl;
 	cout_lock.unlock();
 
 	string header(to_string(cipher_size));
@@ -198,12 +240,6 @@ vector<char *> filesystem::split_request(char *request, const string &token) {
 //create new internal and external filesystem entry/inode
 int filesystem::create_entry(const char* username, char *path, char* type) {
 
-	//Split given path into individual directories
-	vector<char *> split_path = split_request(path, "/");
-	cout_lock.lock();
-	cout << "path split" << endl;
-	cout_lock.unlock();
-
 	//Find smallest free disk block for new entry's inode, mark it as used
 	unsigned int new_entry_inode_block = next_free_disk_block();
 	if (new_entry_inode_block == FS_DISKSIZE)
@@ -213,27 +249,12 @@ int filesystem::create_entry(const char* username, char *path, char* type) {
 	cout_lock.unlock();
 	disk_blocks[new_entry_inode_block] = 1;
 
-	//Read in inode of root directory from disk
-	fs_inode* inode = new fs_inode;
-	disk_readblock(0, inode);
+	fs_inode* inode;
+	entry* parent_entry = recurse_filesystem(username, path, inode, 'c');
 	cout_lock.lock();
-	cout << split_path[0] << endl;
+	cout << "path after recurse: " << path << endl;
 	cout_lock.unlock();
 
-	//If parent directory of new directory/file is not the '/' directory,
-	//traverse filesystem to find the correct parent directory
-	entry* parent_entry = &root;
-	if (root.entries.find(split_path[0]) != root.entries.end()) {
-		cout_lock.lock();
-		cout << "recurse_filesystem to find parent_entry" << endl;
-		cout_lock.unlock();
-		parent_entry = recurse_filesystem(username, split_path, 0, root.entries[split_path[1]], inode, 'c');
-	} else {
-		cout_lock.lock();
-		cout << "path is in root" << endl;
-		cout_lock.unlock();
-	}
-	
 	//Path provided in fs_create() is invalid
 	if(parent_entry == nullptr){
 		cout_lock.lock();
@@ -262,7 +283,7 @@ int filesystem::create_entry(const char* username, char *path, char* type) {
 		unsigned int next_disk_block = next_free_disk_block();
 
 		//...and make sure 1) a free block exists on disk and 2) parent directory's inode can hold another block
-		if (next_disk_block == FS_DISKSIZE && inode->size < FS_MAXFILEBLOCKS) {
+		if (next_disk_block == FS_DISKSIZE || inode->size == FS_MAXFILEBLOCKS) {
 			disk_blocks[new_entry_inode_block] = 0;
 			delete inode;
 			return -1;
@@ -276,7 +297,7 @@ int filesystem::create_entry(const char* username, char *path, char* type) {
 
 		//Add new data block to inode, increment size of inode (# blocks in inode)
 		inode->blocks[inode->size] = next_disk_block;
-		inode->size += 1;
+		inode->size++;
 
 		//Initialize array of direntries at this new block in parent directory's blocks[] to be empty
 		memset(parent_directory, 0, FS_BLOCKSIZE);
@@ -289,23 +310,23 @@ int filesystem::create_entry(const char* username, char *path, char* type) {
 	}
 
 	//Create new internal entry for directory/file being created
-	parent_entry->entries[split_path.back()] = new entry(new_entry_inode_block, parent_entry->entries.size());
+	parent_entry->entries[path] = new entry(new_entry_inode_block, parent_entry->entries.size());
 
 	//Create new external direntry for directory/file being created
 	fs_direntry new_direntry;
 	new_direntry.inode_block = new_entry_inode_block;
-	strcpy(new_direntry.name, split_path.back());
+	strcpy(new_direntry.name, path);
 
 	cout_lock.lock();
 	cout << "sizeof(new_direntry): " << sizeof(new_direntry) << endl;
-	cout << "parent_blocks_index: " << parent_entry->entries[split_path.back()]->parent_blocks_index << endl;
+	cout << "parent_blocks_index: " << parent_entry->entries[path]->parent_blocks_index << endl;
 	cout << "sizeof(fs_direntry): " << sizeof(fs_direntry) << endl;
 	cout << "inode->blocks: " << inode->blocks << endl;
 	cout_lock.unlock();
 
 	//Place new_direntry in next unoccupied index 
 	//(parent_directory[] represents the direntries in the block at the highest index in parent directory's blocks[])
-	parent_directory[parent_entry->entries[split_path.back()]->parent_blocks_index] = new_direntry;
+	parent_directory[parent_entry->entries[path]->parent_blocks_index] = new_direntry;
 	cout_lock.lock();
 	cout << "new_direntry copied into parent_entry" << endl;
 	cout_lock.unlock();
@@ -318,6 +339,8 @@ int filesystem::create_entry(const char* username, char *path, char* type) {
 	cout_lock.lock();
 	cout << "new entry created" << endl;
 	cout_lock.unlock();
+
+	//will need to change this, probably create a function that shadows.
 
 	//Update the blocks[] array of the parent directory of the new directory/file on disk 
 	//to now include the direntry/data block # of new directory/file
@@ -338,33 +361,63 @@ int filesystem::create_entry(const char* username, char *path, char* type) {
 	return 0;
 }
 
+filesystem::entry* filesystem::recurse_filesystem(const char *username, char* path, fs_inode*& inode, char req_type){
+	//Split given path into individual directories
+	vector<char *> split_path = split_request(path, "/");
+	cout_lock.lock();
+	cout << "path split" << endl;
+	cout_lock.unlock();
+
+	//Read in inode of root directory from disk
+	inode = new fs_inode;
+	disk_readblock(0, inode);
+	cout_lock.lock();
+	cout << split_path[0] << endl;
+	cout_lock.unlock();
+
+	//Traverse filesystem to find the correct parent directory
+	cout_lock.lock();
+	cout << "recurse_filesystem to find parent_entry" << endl;
+	cout_lock.unlock();
+	return recurse_filesystem_helper(username, split_path, 0, &root, inode, req_type);
+}
 
 //FIX THIS!!!!!!!!!!!
-filesystem::entry* filesystem::recurse_filesystem(const char* username, vector<char*> &split_path, 
+filesystem::entry* filesystem::recurse_filesystem_helper(const char* username, vector<char*> &split_path, 
 						  unsigned int path_index, entry* dir, 
 						  fs_inode* &inode, char req_type) {
+	cout_lock.lock();
+	cout << "In directory: " << split_path[path_index] << endl;
+	cout_lock.unlock();
+
 	//User trying to access directory they do not own
-	if (strcmp(inode->owner, username)) 
+	if (inode->owner[0] != '\0' && strcmp(inode->owner, username)) 
 		return nullptr;
 	
-	//Directory is empty
-	if (inode->size == 0) {
-		//Name/path of new directory/file is valid
-		if (split_path.size()-1 == path_index && req_type == 'c') 
+
+	if (split_path.size()-1 == path_index){
+		//Create and Name/path of new directory/file doesn't exist
+		//Not create and Name of directory/file does exist
+		if((dir->entries.find(split_path[path_index]) == dir->entries.end())
+		   ^ (req_type != 'c')){
+		   	strcpy(split_path[0] - 1, split_path[path_index]);
 			return dir;
+		}
+		else
+			return nullptr;
+	}
 
-		//Directory/file read/write/delete is invalid
+	/*//Directory is empty or doesn't exist
+	if (inode->size == 0 
+		|| dir->entries.find(split_path[path_index]) == dir->entries.end()) {
+		
 		return nullptr;
-	}
+	}*/
 
-	//Directory/file exists, read/write/delete valid, return parent directory
-	if (split_path.size()-1 == path_index && req_type != 'c' && dir->entries.find(split_path[path_index]) != dir->entries.end()) {
-		return dir;
-	}
-
+	//This will probably need to change... this might be considered caching, which we should not do
 	if (dir->entries.find(split_path[path_index]) != dir->entries.end()) {
 		disk_readblock(dir->entries[split_path[path_index]]->inode_block, inode);
-		return recurse_filesystem(username, split_path, path_index+1, dir->entries[split_path[path_index]], inode, req_type);
+		return recurse_filesystem_helper(username, split_path, path_index+1, dir->entries[split_path[path_index]], inode, req_type);
 	}
 
 	return nullptr;

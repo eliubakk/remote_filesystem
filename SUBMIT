@@ -1,4 +1,5 @@
 test_fs_create.cc
+test_create_directories_recursive.cc
 test_fs_session.cc
 filesystem.h
 filesystem.cc

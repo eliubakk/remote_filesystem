@@ -113,7 +113,7 @@ void request_handler(filesystem* fs, int client){
 
 	//Read in encrypted request
 	char encrypted_message[encrypted_size + 1];
-	read_bytes(client, encrypted_message, sizeof(encrypted_message) - 1);
+	read_bytes(client, encrypted_message, encrypted_size);
 	cout_lock.lock();
 	cout << "data got" << endl;
 	cout_lock.unlock();
@@ -125,6 +125,7 @@ void request_handler(filesystem* fs, int client){
 							(void*)encrypted_message, 
 							encrypted_size, &decrypted_size);
 	if(decrypted_message == nullptr){
+		close(client);
 		return;
 	}
 	cout_lock.lock();
@@ -142,6 +143,15 @@ void request_handler(filesystem* fs, int client){
 			break;
 		case 'C':
 			fs->create_response(client, username, request, decrypted_size + 1);
+			break;
+		case 'D':
+			fs->delete_response(client, username, request, decrypted_size + 1);
+			break;
+		case 'R':
+			fs->readblock_response(client, username, request, decrypted_size + 1);
+			break;
+		case 'W':
+			fs->writeblock_response(client, username, request, decrypted_size + 1);
 			break;
 	};
 	close(client);
