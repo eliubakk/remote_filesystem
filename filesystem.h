@@ -15,6 +15,7 @@
 #include <bitset>
 #include <queue>
 #include "fs_user.h"
+#include "fs_server.h"
 
 #define READ 0
 #define WRITE 1
@@ -34,17 +35,30 @@
 
 class filesystem{
 	private:
+		/*struct recurse_args{
+			fs_inode* inode,
+			unsigned int disk_block,
+			unsigned int blocks_index,
+			fs_direntry folders[FS_DIRENTRIES],
+			unsigned int folder_index
+		};*/
+
 		std::unordered_map<std::string, fs_user*> users;
 		std::queue<unsigned int> free_blocks;
-		std::vector<pthread_rwlock_t> block_lock;
+		pthread_rwlock_t block_lock[FS_DISKSIZE];
 		void send_response(int client, const char *username, std::string response);
-		std::vector<char *> split_request(char *request, const std::string &token);
-		int new_session(const char* username, std::vector<char*>& args);
-		int create_entry(const char* username, std::vector<char*>& args);
-		int delete_entry(const char* username, std::vector<char*>& args);
-		int access_entry(const char* username, std::vector<char*>& args);
-		fs_direntry* recurse_filesystem(const char *username, char* path, fs_inode*& inode, char req_type);
-		fs_direntry* recurse_filesystem_helper(const char *username, std::vector<char*> &split_path, unsigned int path_index, fs_direntry dir, fs_inode*& inode, char req_type);
+		std::vector<std::string> split_request(const std::string &request, const std::string& token);
+		int new_session(const char* username, std::vector<std::string>& args);
+		int create_entry(const char* username, std::vector<std::string>& args);
+		int delete_entry(const char* username, std::vector<std::string>& args);
+		int access_entry(const char* username, std::vector<std::string>& args);
+		bool search_directory(fs_inode*& dir_inode, unsigned int &dir_block, fs_direntry* folders,  unsigned int &folder_index, const char* name);
+		bool recurse_filesystem(const char *username, std::string& path, fs_inode*& inode, unsigned int &disk_block,
+							unsigned int &block, fs_direntry* folders, unsigned int &folder_index, char req_type);
+		bool recurse_filesystem_helper(const char* username, std::vector<std::string> &split_path, 
+						  			unsigned int path_index, fs_inode*& inode, unsigned int &disk_block,
+						  			unsigned int &block, 
+									fs_direntry* folders, unsigned int &folder_index, char req_type);
 
 	public:
 		filesystem();
