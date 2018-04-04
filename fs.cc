@@ -132,11 +132,11 @@ void request_handler(filesystem* fs, int client){
 	cout << "message decrypted" << endl;
 	cout_lock.unlock();
 
-	char request[decrypted_size + 1];
+	/*char request[decrypted_size + 1];
 	strncpy(request, decrypted_message, decrypted_size);
-	request[decrypted_size] = '\0';
+	request[decrypted_size] = '\0';*/
 
-	fs->handle_request(client, username, request, decrypted_size + 1);
+	fs->handle_request(client, username, decrypted_message, decrypted_size);
 	close(client);
 }
 

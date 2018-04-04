@@ -46,11 +46,11 @@ class filesystem{
 		std::unordered_map<std::string, fs_user*> users;
 		std::queue<unsigned int> free_blocks;
 		pthread_rwlock_t block_lock[FS_DISKSIZE];
-		void send_response(int client, const char *username, std::string response);
+		void send_response(int client, const char *username, std::vector<std::string>& request_args);
 		std::vector<std::string> split_request(const std::string &request, const std::string& token);
 		int new_session(const char* username, std::vector<std::string>& args);
-		int create_entry(const char* username, std::vector<std::string>& args);
 		int delete_entry(const char* username, std::vector<std::string>& args);
+		int create_entry(const char* username, std::vector<std::string>& args);
 		int access_entry(const char* username, std::vector<std::string>& args);
 		bool search_directory(fs_inode*& dir_inode, unsigned int &dir_block, fs_direntry* folders,  unsigned int &folder_index, const char* name);
 		bool recurse_filesystem(const char *username, std::string& path, fs_inode*& inode, unsigned int &disk_block,
