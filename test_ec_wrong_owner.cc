@@ -22,13 +22,13 @@ int main(int argc, char *argv[]){
     fs_session("user2", "password2", &session, seq2++);
 
     //WRONG OWNER ERROR CHECK
-    cout << "Should be 0: " << fs_create("user1", "password1", session, seq++, "/home", 'd') << endl;
-    cout << "Should be 0: " << fs_create("user1", "password1", session, seq++, "/hw_sol", 'f') << endl;
-    cout << "Should be -1: " << fs_create("user2", "password2", session, seq2++, "/home/EECS482", 'd') << endl;
-    cout << "Should be -1: " << fs_create("user2", "password2", session, seq2++, "/home/homework", 'f') << endl;
+    assert(fs_create("user1", "password1", session, seq++, "/home", 'd') == 0);
+    assert(fs_create("user1", "password1", session, seq++, "/hw_sol", 'f') == 0);
+    assert(fs_create("user2", "password2", session, seq2++, "/home/EECS482", 'd') == -1);
+    assert(fs_create("user2", "password2", session, seq2++, "/home/homework", 'f') == -1);
 
-    cout << "Should be -1: " << fs_delete("user2", "password2", session, seq2++, "/home") << endl;
-    cout << "Should be -1: " << fs_delete("user2", "password2", session, seq2++, "/hw_sol") << endl;
+    assert(fs_delete("user2", "password2", session, seq2++, "/home") == -1);
+    assert(fs_delete("user2", "password2", session, seq2++, "/hw_sol") == -1);
 
     char message[FS_BLOCKSIZE]; 
     memset(message, 0, FS_BLOCKSIZE);
@@ -38,7 +38,7 @@ int main(int argc, char *argv[]){
     char output[FS_BLOCKSIZE];
     memset(output, 0, FS_BLOCKSIZE);
 
-    cout << "Should be -1: " << fs_writeblock("user2", "password2", session, seq2++, "/hw_sol", 0, message) << endl;
-    cout << "Should be -1 " << fs_readblock("user2", "password2", session, seq2++, "/hw_sol", 0, output) << endl;
-    cout << "seq2 should be 7: " << seq2 << endl;
+    assert(fs_writeblock("user2", "password2", session, seq2++, "/hw_sol", 0, message) == -1);
+    assert(fs_readblock("user2", "password2", session, seq2++, "/hw_sol", 0, output) == -1);
+    assert(seq2 == 7);
 }

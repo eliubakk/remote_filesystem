@@ -1,5 +1,6 @@
 #include <iostream>
 #include <cstdlib>
+#include <cassert>
 #include "fs_client.h"
 
 using namespace std;
@@ -21,45 +22,45 @@ int main(int argc, char *argv[]){
     fs_session("user1", "password1", &session, seq++);
     fs_session("user2", "password2", &session, seq2++);
 
-    cout << "Should be 0: " << fs_create("user2", "password2", session, seq2++, "/Music", 'd') << endl;
-    cout << "Should be 0: " << fs_create("user2", "password2", session, seq2++, "/Music/Snoop", 'f') << endl;
+    fs_create("user2", "password2", session, seq2++, "/Music", 'd');
+    fs_create("user2", "password2", session, seq2++, "/Music/Snoop", 'f');
 
     //DIRECTORY INSIDE A FILE
-    cout << "Should be -1: " << fs_create("user2", "password2", session, seq2++, "/Music/Snoop/Hi", 'd') << endl;
+    assert(fs_create("user2", "password2", session, seq2++, "/Music/Snoop/Hi", 'd') == -1);
 
     //FILE INSIDE A FILE
-    cout << "Should be 0: " << fs_create("user2", "password2", session, seq2++, "/Music/Hi.mp3", 'f') << endl;
-    cout << "Should be -1: " << fs_create("user2", "password2", session, seq2++, "/Music/Hi.mp3/Hello.mp3", 'f') << endl;
+    assert(fs_create("user2", "password2", session, seq2++, "/Music/Hi.mp3", 'f') == 0);
+    assert(fs_create("user2", "password2", session, seq2++, "/Music/Hi.mp3/Hello.mp3", 'f') == -1);
 
     //DON'T INCREMENT SEQ2 IN ERROR
-    cout << "Should be -1: " << fs_create("user2", "password2", session, seq2, "/Music/Snoop", 'd') << endl;
+    assert(fs_create("user2", "password2", session, seq2, "/Music/Snoop", 'd') == -1);
     //SHOULD FAIL BECAUSE OF WRONG SEQ2
-    cout << "Should be -1: " << fs_create("user2", "password2", session, seq2++, "/Music/Dre.mp3", 'f') << endl;
+    assert(fs_create("user2", "password2", session, seq2++, "/Music/Dre.mp3", 'f') == -1);
     seq2++;
 
     //SAME FILENAME
-    cout << "Should be 0: " << fs_create("user2", "password2", session, seq2++, "/Music/Dre.mp3", 'f') << endl;
-    cout << "Should be -1: " << fs_create("user2", "password2", session, seq2++, "/Music/Dre.mp3", 'f') << endl;
+    assert(fs_create("user2", "password2", session, seq2++, "/Music/Dre.mp3", 'f') == 0);
+    assert(fs_create("user2", "password2", session, seq2++, "/Music/Dre.mp3", 'f') == -1);
 
     //SAME DIRECTORY NAME
-    cout << "Should be 0: " << fs_create("user1", "password1", session, seq++, "/Video", 'd') << endl;
-    cout << "Should be -1: " << fs_create("user2", "password2", session, seq2++, "/Video", 'd') << endl;
+    assert(fs_create("user1", "password1", session, seq++, "/Video", 'd') == 0);
+    assert(fs_create("user2", "password2", session, seq2++, "/Video", 'd') == -1);
 
     //SAME FILENAME IN ROOT
-    cout << "Should be 0: " << fs_create("user1", "password1", session, seq++, "/midterm.doc", 'f') << endl;
-    cout << "Should be -1: " << fs_create("user2", "password2", session, seq2++, "/midterm.doc", 'f') << endl;
+    assert(fs_create("user1", "password1", session, seq++, "/midterm.doc", 'f') == 0);
+    assert(fs_create("user2", "password2", session, seq2++, "/midterm.doc", 'f') == -1);
 
     //INCREMENT SEQ2 ONCE MORE
     ++seq2;
-    cout << "Should be -1: " << fs_create("user2", "password2", session, seq2++, "/midterm_sol.doc", 'f') << endl;
+    assert(fs_create("user2", "password2", session, seq2++, "/midterm_sol.doc", 'f') == -1);
     --seq2;
 
     //SAME NAME DIRECTORY WITHIN
-    cout << "Should be 0: " << fs_create("user2", "password2", session, seq2++, "/Music/Music", 'd') << endl;
+    assert(fs_create("user2", "password2", session, seq2++, "/Music/Music", 'd') == 0);
 
     //SAME NAME FILE
-    cout << "Should be 0: " << fs_create("user2", "password2", session, seq2++, "/Music/Music/Music", 'f') << endl;
+    assert(fs_create("user2", "password2", session, seq2++, "/Music/Music/Music", 'f') == 0);
 
     //CREATE MULTIPLE DIRECTORIES
-    cout << "Should be -1: " << fs_create("user2", "password2", session, seq2++, "/Music/Music/HipHop/Dre", 'd') << endl;      
+    assert(fs_create("user2", "password2", session, seq2++, "/Music/Music/HipHop/Dre", 'd') == -1);    
 }
