@@ -1,4 +1,6 @@
 test_create_directories_recursive.cc
+test_ec_seq_samename.cc
+test_ec_wrong_owner.cc
 test_fs_create.cc
 test_fs_delete.cc
 test_fs_session.cc
