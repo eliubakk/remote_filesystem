@@ -1,5 +1,6 @@
-test_fs_create.cc
 test_create_directories_recursive.cc
+test_fs_create.cc
+test_fs_delete.cc
 test_fs_session.cc
 test_fs_simple_rw.cc
 test_spec.cc
