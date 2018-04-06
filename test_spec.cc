@@ -28,6 +28,6 @@ int main(int argc, char *argv[])
     fs_create("user1", "password1", session, seq++, "/dir/file", 'f');
     fs_writeblock("user1", "password1", session, seq++, "/dir/file", 0, writedata);
     fs_readblock("user1", "password1", session, seq++, "/dir/file", 0, readdata);
-    //fs_delete("user1", "password1", session, seq++, "/dir/file");
-    //fs_delete("user1", "password1", session, seq++, "/dir");
+    fs_delete("user1", "password1", session, seq++, "/dir/file");
+    fs_delete("user1", "password1", session, seq++, "/dir");
 }

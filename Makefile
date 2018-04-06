@@ -1,3 +1,4 @@
+SHELL := /bin/bash
 CXX = g++
 CXXFLAGS = -g -std=c++11 -Wall -Werror
 DEBUGFLAGS = -DDEBUG
@@ -6,6 +7,7 @@ SERVER_LIBS = libfs_server.o -pthread -ldl
 CLIENT_LIBS = libfs_client.o -ldl
 
 EXECUTABLE = fs
+
 
 PROJECTFILE = fs.cc
 
@@ -17,8 +19,8 @@ SOURCES := $(filter-out $(TESTSOURCES), $(SOURCES))
 OBJECTS = $(SOURCES:%.cc=%.o)
 
 all: $(EXECUTABLE) alltests
-	./createfs
-	export FS_CRYPT=AES
+	./createfs \
+	export FS_CRYPT=CLEAR
 
 release: CXXFLAGS += -DNDEBUG
 release: all
@@ -47,5 +49,5 @@ alltests: $(TESTS)
 clean: 
 	rm -f $(OBJECTS) $(EXECUTABLE) $(TESTS)
 
-.PHONY: all clean alltests debug release
+.PHONY: all clean alltests debug release setencrypt
 .SUFFIXES:

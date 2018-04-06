@@ -69,9 +69,13 @@ int main(int argc, char **argv){
 
 	listen(sock, 10);
 
+	socklen_t adder_len = sizeof(addr);
 	//Continuously listen for, accept, and handle requests
 	while(true){
-		int client = accept(sock, (struct sockaddr*) nullptr, (socklen_t*)nullptr);
+		int client = accept(sock, (struct sockaddr*) &addr, (socklen_t*)&adder_len);
+		if(client == -1){
+			exit(EXIT_FAILURE);
+		}
 		thread request(request_handler, &fs, client);
 		request.detach();
 	}
@@ -80,10 +84,6 @@ int main(int argc, char **argv){
 //Request handler
 //MODIFIES, REQUIRES, EFFECTS......???? (do we want to do this again?)
 void request_handler(filesystem* fs, int client){
-	cout_lock.lock();
-	cout << "New thread client: " << client << endl;
-	cout_lock.unlock();
-
 	//Read username from cleartext request header
 	char username[FS_MAXUSERNAME + 1];
 	if(!read_bytes(client, username, sizeof(username), true, ' ')){
@@ -96,9 +96,6 @@ void request_handler(filesystem* fs, int client){
 		close(client);
 		return;
 	}
-	cout_lock.lock();
-	cout << "user exists" << endl;
-	cout_lock.unlock();
 
 	//Read size of encrypted request from cleartext request header
 	char request_size[INT_MAXDIGITS + 1];
@@ -107,16 +104,10 @@ void request_handler(filesystem* fs, int client){
 		return;
 	}
 	unsigned int encrypted_size = stoi(request_size);
-	cout_lock.lock();
-	cout << "data size got" << endl; 
-	cout_lock.unlock();
 
 	//Read in encrypted request
 	char encrypted_message[encrypted_size + 1];
 	read_bytes(client, encrypted_message, encrypted_size);
-	cout_lock.lock();
-	cout << "data got" << endl;
-	cout_lock.unlock();
 
 	//Decrypt request
 	unsigned int decrypted_size = 0;
@@ -128,13 +119,6 @@ void request_handler(filesystem* fs, int client){
 		close(client);
 		return;
 	}
-	cout_lock.lock();
-	cout << "message decrypted" << endl;
-	cout_lock.unlock();
-
-	/*char request[decrypted_size + 1];
-	strncpy(request, decrypted_message, decrypted_size);
-	request[decrypted_size] = '\0';*/
 
 	fs->handle_request(client, username, decrypted_message, decrypted_size);
 	close(client);
