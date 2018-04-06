@@ -20,6 +20,7 @@ int main(int argc, char *argv[]){
 
     fs_session("user1", "password1", &session, seq++);
 
+    cout << "Should be -1: " << fs_delete("user1", "password1", session, seq++, "/") << endl;
     fs_create("user1", "password1", session, seq++, "/home", 'd');
     fs_create("user1", "password1", session, seq++, "/home/EECS482", 'd');
     fs_create("user1", "password1", session, seq++, "/home/EECS482/project3", 'd');
@@ -29,7 +30,7 @@ int main(int argc, char *argv[]){
 
     cout << "Should be 0: " << fs_delete("user1", "password1", session, seq++, "/home/EECS482/project3") << endl;
     cout << "Should be 0: " << fs_delete("user1", "password1", session, seq++, "/home/EECS482/project4/test_case") << endl;
-    cout << "Should be 0: " << fs_delete("user1", "password1", session, seq++, "/home/EECS482") << endl;
-    cout << "Should be -1: " << fs_delete("user1", "password1", session, seq++, "/home/EECS482/project4/test_case2") << endl;
-    cout << "Should be -1: " << fs_delete("user1", "password1", session, seq++, "/home/EECS482/project4") << endl;    
+    cout << "Should be -1: " << fs_delete("user1", "password1", session, seq++, "/home/EECS482") << endl;
+    cout << "Should be 0: " << fs_delete("user1", "password1", session, seq++, "/home/EECS482/project4/test_case2") << endl;
+    cout << "Should be 0: " << fs_delete("user1", "password1", session, seq++, "/home/EECS482/project4") << endl;    
 }

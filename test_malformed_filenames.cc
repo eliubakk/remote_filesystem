@@ -1,4 +1,4 @@
-e <iostream>
+#include <iostream>
 #include <cstdlib>
 #include <vector>
 #include <cstring>
@@ -20,27 +20,19 @@ int main(int argc, char *argv[]){
     server = argv[1];
     server_port = atoi(argv[2]);
 
-    char output[FS_BLOCKSIZE];
-    memset(output, 0, FS_BLOCKSIZE);
-
     fs_clientinit(server, server_port);
-    cout << "PRE_SESSION: " << session << endl;
-    cout << "return val: " << fs_session("user1", "password1", &session, seq++) << endl;
-    cout << "POST_SESSION: " << session << endl;
+    fs_session("user1", "password1", &session, seq++);
 
-    char message[FS_BLOCKSIZE]; 
-    memset(message, 0, FS_BLOCKSIZE);
+    fs_create("user1", "password1", session, seq++, "/user1Home", 'd');
 
-    fs_create("user1", "password1", session, seq++, "/user1Home");
-
-    fs_create("user1", "password1", session, seq++, "user1Home/noStartingSlash", 'f');
-    fs_create("user1", "password1", session, seq++, "/user1Home/endingSlash/", 'f');
-    fs_create("user1", "password1", session, seq++, "//user1Home/doubleStartingSlash", 'f');
-    fs_create("user1", "password1", session, seq++, "/user1Home/space inFilename", 'f');
-    fs_create("user1", "password1", session, seq++, "/user1Home/symbols!@#$%^&*()+-=/?><,.~`{}[]|';:_", 'f');
+    cout << "should be -1: " << fs_create("user1", "password1", session, seq++, "user1Home/noStartingSlash", 'f') << endl;
+    cout << "should be -1: " << fs_create("user1", "password1", session, seq++, "/user1Home/endingSlash/", 'f') << endl;
+    cout << "should be -1: " << fs_create("user1", "password1", session, seq++, "//user1Home/doubleStartingSlash", 'f') << endl;
+    cout << "should be -1: " << fs_create("user1", "password1", session, seq++, "/user1Home/space inFilename", 'f') << endl;
+    cout << "should be 0: " << fs_create("user1", "password1", session, seq++, "/user1Home/symbols!@#$%^&*()+-=?><,.~`{}[]|';:_", 'f') << endl;
     
     //This one should not work
-    fs_create("user1", "password1", session, seq++, "/user1Home/123456789012345678901234567890123456789012345678901234567890", 'f');
+    cout << "should be -1: " << fs_create("user1", "password1", session, seq++, "/user1Home/123456789012345678901234567890123456789012345678901234567890", 'f') << endl;
     //This one should work
-    fs_create("user1", "password1", session, seq++, "/user1Home/12345678901234567890123456789012345678901234567890123456789", 'f');
+    cout << "should be 0: " << fs_create("user1", "password1", session, seq++, "/user1Home/12345678901234567890123456789012345678901234567890123456789", 'f') << endl;
 }

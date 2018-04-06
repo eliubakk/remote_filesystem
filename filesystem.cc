@@ -207,8 +207,9 @@ int filesystem::create_entry(const char *username, vector<string>& args){
 	
 	filesystem::recurse_args recurse_fs_args;
 	recurse_fs_args.disk_block = 0;
+	print_debug(args[PATH]);
 	bool parent_dir_found = recurse_filesystem(username, args[PATH], recurse_fs_args, 'c');
-
+	print_debug(args[PATH]);
 	//Path provided in fs_create() is invalid
 	if(!parent_dir_found){
 
@@ -217,6 +218,7 @@ int filesystem::create_entry(const char *username, vector<string>& args){
 	}
 	
 	bool added_new_block = false;
+	print_debug("Blocks index:",recurse_fs_args.blocks_index);
 	//If new direntry for this new directory/file will require another data block in parent directory's inode...
 	if (recurse_fs_args.inode->size <= recurse_fs_args.blocks_index) {
 
@@ -305,7 +307,8 @@ int filesystem::delete_entry(const char *username, vector<string>& args){
 	disk_readblock(dir_to_delete.inode_block, &inode_to_delete);
 
 	//if inode is a non-empty directory, don't delete
-	if(inode_to_delete.type == 'd' && inode_to_delete.size != 0){
+	if((inode_to_delete.type == 'd' && inode_to_delete.size != 0) ||
+		strcmp(inode_to_delete.owner, username)){
 		delete recurse_fs_args.inode;
 		return -1;
 	}
@@ -377,6 +380,10 @@ int filesystem::access_entry(const char *username, vector<string>& args){
 	//Read in inode of file being read/written to
 	fs_inode file;
 	disk_readblock(recurse_fs_args.folders[recurse_fs_args.folder_index].inode_block, (void*)&file);
+	if(file.type == 'd' || strcmp(file.owner, username)){
+		delete recurse_fs_args.inode;
+		return -1;
+	}
 
 	//If fs_readblock() request...
 	if (type == 'r'){
@@ -390,8 +397,10 @@ int filesystem::access_entry(const char *username, vector<string>& args){
 			args.emplace_back(data, FS_BLOCKSIZE);
 		}
 		//Invalid block number given
-		else
+		else{
+			delete recurse_fs_args.inode;
 			return -1;
+		}
 	}
 
 	//If fs_writeblock() request...
@@ -404,8 +413,10 @@ int filesystem::access_entry(const char *username, vector<string>& args){
 		//...and we must allocate a new block for write data...
 		else if (stoul(args[BLOCK]) == file.size){
 			//Check to see if 1) there are any more free disk blocks and 2) this file can hold another block
-			if(free_blocks.empty() || file.size == FS_MAXFILEBLOCKS)
+			if(free_blocks.empty() || file.size == FS_MAXFILEBLOCKS){
+				delete recurse_fs_args.inode;
 				return -1;
+			}
 			file.blocks[stoul(args[BLOCK])] = free_blocks.front();
 			free_blocks.pop();
 			file.size++;
@@ -414,9 +425,12 @@ int filesystem::access_entry(const char *username, vector<string>& args){
 			disk_writeblock(file.blocks[stoul(args[BLOCK])], (void*)args[DATA].c_str());	
 			disk_writeblock(recurse_fs_args.folders[recurse_fs_args.folder_index].inode_block, (void*)&file);	
 		}
-		else
+		else{
+			delete recurse_fs_args.inode;
 			return -1;
+		}
 	}
+	delete recurse_fs_args.inode;
 	return 0;
 }
 
@@ -464,12 +478,16 @@ vector<string> filesystem::split_request(const string& request, const string& to
 
 //Function to recursively search for valid parent directory of file/directory sent in request
 bool filesystem::recurse_filesystem(const char *username, std::string& path, recurse_args &args, char req_type){
-	//Split given path into individual directories
-	vector<string> split_path = split_request(path, "/");
-	path = split_path.back();
-
 	//Read in inode of root directory from disk
 	args.inode = new fs_inode;
+
+	//Split given path into individual directories
+	vector<string> split_path = split_request(path, "/");
+	if(split_path.size() == 0){
+		return false;
+	}
+	path = split_path.back();
+
 	disk_readblock(args.disk_block, args.inode);
 
 	//Traverse filesystem to find the correct parent directory
@@ -480,7 +498,6 @@ bool filesystem::recurse_filesystem(const char *username, std::string& path, rec
 //Helper for recurse_filesystem(), actually has recursive call to traverse given path, checking if it is valid
 bool filesystem::recurse_filesystem_helper(const char* username, std::vector<std::string> &split_path, 
 											unsigned int path_index, recurse_args &args, char req_type) {
-
 	//User trying to access directory they do not own
 	if (args.inode->owner[0] != '\0' && strcmp(args.inode->owner, username)) 
 		return false;
@@ -538,8 +555,11 @@ bool filesystem::search_directory(recurse_args &args, const char* name){
 			}
 		}
 	}
-
-	args.blocks_index = first_empty_dir_block;
+	if(first_empty){
+		args.blocks_index = args.inode->size;
+	}else{
+		args.blocks_index = first_empty_dir_block;
+	}
 	args.folder_index = first_empty_folder_index;
 	memcpy(args.folders, first_empty_folders, FS_DIRENTRIES*sizeof(fs_direntry));
 	return false;

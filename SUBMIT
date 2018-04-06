@@ -1,12 +1,16 @@
 test_create_directories_recursive.cc
+test_data_edgecases.cc
 test_ec_seq_samename.cc
 test_ec_wrong_owner.cc
+test_fill_file.cc
 test_fs_create.cc
 test_fs_delete.cc
 test_fs_session.cc
 test_fs_simple_rw.cc
 test_inode_bookkeeping.cc
 test_malformed_filenames.cc
+test_rw_from_dir.cc
+test_rw_multiple_file_blocks.cc
 test_spec.cc
 filesystem.h
 filesystem.cc

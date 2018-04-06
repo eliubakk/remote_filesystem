@@ -52,8 +52,7 @@ int main(int argc, char *argv[]){
 
     //INCREMENT SEQ2 ONCE MORE
     ++seq2;
-    assert(fs_create("user2", "password2", session, seq2++, "/midterm_sol.doc", 'f') == -1);
-    --seq2;
+    assert(fs_create("user2", "password2", session, seq2++, "/midterm_sol.doc", 'f') == 0);
 
     //SAME NAME DIRECTORY WITHIN
     assert(fs_create("user2", "password2", session, seq2++, "/Music/Music", 'd') == 0);

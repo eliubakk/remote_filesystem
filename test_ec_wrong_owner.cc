@@ -1,5 +1,7 @@
 #include <iostream>
 #include <cstdlib>
+#include <cassert>
+#include <cstring>
 #include "fs_client.h"
 
 using namespace std;

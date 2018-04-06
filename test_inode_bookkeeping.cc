@@ -20,13 +20,8 @@ int main(int argc, char *argv[]){
     server = argv[1];
     server_port = atoi(argv[2]);
 
-    char output[FS_BLOCKSIZE];
-    memset(output, 0, FS_BLOCKSIZE);
-
     fs_clientinit(server, server_port);
-    cout << "PRE_SESSION: " << session << endl;
-    cout << "return val: " << fs_session("user1", "password1", &session, seq++) << endl;
-    cout << "POST_SESSION: " << session << endl;
+    fs_session("user1", "password1", &session, seq++);
 
     char message[FS_BLOCKSIZE]; 
     memset(message, 0, FS_BLOCKSIZE);
@@ -42,14 +37,14 @@ int main(int argc, char *argv[]){
                             "/user1Home/message9",
                             "/user1Home/message10",
                             "/user1Home/message11",
-                            "/user1Home/message9" 
+                            "/user1Home/message12" 
                             };
 
-    fs_create("user1", "password1", session, seq++, "/user1Home");
+    fs_create("user1", "password1", session, seq++, "/user1Home", 'd');
 
     for (int i = 0; i < 8; ++i) {
-        fs_create("user1", "password1", session, seq++, paths[i], 'f');
-        fs_writeblock("user1", "password1", session, seq++, paths[i], i, message);
+        fs_create("user1", "password1", session, seq++, paths[i].c_str(), 'f');
+        fs_writeblock("user1", "password1", session, seq++, paths[i].c_str(), 0, message);
     }
 
     fs_delete("user1", "password1", session, seq++, "/user1Home/thisIsGettingDeleted");
@@ -57,9 +52,9 @@ int main(int argc, char *argv[]){
 
 
 
-    for (int i = 9; i < 12; ++i) {
-        fs_create("user1", "password1", session, seq++, paths[i], 'f');
-        fs_writeblock("user1", "password1", session, seq++, paths[i], i, message);
+    for (int i = 8; i < 12; ++i) {
+        fs_create("user1", "password1", session, seq++, paths[i].c_str(), 'f');
+        fs_writeblock("user1", "password1", session, seq++, paths[i].c_str(), 0, message);
     }
 
     fs_delete("user1", "password1", session, seq++, "/user1Home/message5");
