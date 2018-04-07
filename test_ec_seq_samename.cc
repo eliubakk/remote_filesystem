@@ -1,6 +1,5 @@
 #include <iostream>
 #include <cstdlib>
-#include <cassert>
 #include "fs_client.h"
 
 using namespace std;
@@ -26,40 +25,40 @@ int main(int argc, char *argv[]){
     fs_create("user2", "password2", session, seq2++, "/Music/Snoop", 'f');
 
     //DIRECTORY INSIDE A FILE
-    assert(fs_create("user2", "password2", session, seq2++, "/Music/Snoop/Hi", 'd') == -1);
+    cout << "should be -1: " << fs_create("user2", "password2", session, seq2++, "/Music/Snoop/Hi", 'd') << endl;
 
     //FILE INSIDE A FILE
-    assert(fs_create("user2", "password2", session, seq2++, "/Music/Hi.mp3", 'f') == 0);
-    assert(fs_create("user2", "password2", session, seq2++, "/Music/Hi.mp3/Hello.mp3", 'f') == -1);
+    cout << "should be 0: " << fs_create("user2", "password2", session, seq2++, "/Music/Hi.mp3", 'f') << endl;
+    cout << "should be -1: " << fs_create("user2", "password2", session, seq2++, "/Music/Hi.mp3/Hello.mp3", 'f') << endl;
 
     //DON'T INCREMENT SEQ2 IN ERROR
-    assert(fs_create("user2", "password2", session, seq2, "/Music/Snoop", 'd') == -1);
+    cout << "should be -1: " << fs_create("user2", "password2", session, seq2, "/Music/Snoop", 'd') << endl;
     //SHOULD FAIL BECAUSE OF WRONG SEQ2
-    assert(fs_create("user2", "password2", session, seq2++, "/Music/Dre.mp3", 'f') == -1);
+    cout << "should be -1: " << fs_create("user2", "password2", session, seq2++, "/Music/Dre.mp3", 'f') << endl;
     seq2++;
 
     //SAME FILENAME
-    assert(fs_create("user2", "password2", session, seq2++, "/Music/Dre.mp3", 'f') == 0);
-    assert(fs_create("user2", "password2", session, seq2++, "/Music/Dre.mp3", 'f') == -1);
+    cout << "should be 0: " << fs_create("user2", "password2", session, seq2++, "/Music/Dre.mp3", 'f') << endl;
+    cout << "should be -1: " << fs_create("user2", "password2", session, seq2++, "/Music/Dre.mp3", 'f') << endl;
 
     //SAME DIRECTORY NAME
-    assert(fs_create("user1", "password1", session, seq++, "/Video", 'd') == 0);
-    assert(fs_create("user2", "password2", session, seq2++, "/Video", 'd') == -1);
+    cout << "should be 0: " << fs_create("user1", "password1", session, seq++, "/Video", 'd') << endl;
+    cout << "should be -1: " << fs_create("user2", "password2", session, seq2++, "/Video", 'd') << endl;
 
     //SAME FILENAME IN ROOT
-    assert(fs_create("user1", "password1", session, seq++, "/midterm.doc", 'f') == 0);
-    assert(fs_create("user2", "password2", session, seq2++, "/midterm.doc", 'f') == -1);
+    cout << "should be 0: " << fs_create("user1", "password1", session, seq++, "/midterm.doc", 'f') << endl;
+    cout << "should be -1: " << fs_create("user2", "password2", session, seq2++, "/midterm.doc", 'f') << endl;
 
     //INCREMENT SEQ2 ONCE MORE
     ++seq2;
-    assert(fs_create("user2", "password2", session, seq2++, "/midterm_sol.doc", 'f') == 0);
+    cout << "should be 0: " << fs_create("user2", "password2", session, seq2++, "/midterm_sol.doc", 'f') << endl;
 
     //SAME NAME DIRECTORY WITHIN
-    assert(fs_create("user2", "password2", session, seq2++, "/Music/Music", 'd') == 0);
+    cout << "should be 0: " << fs_create("user2", "password2", session, seq2++, "/Music/Music", 'd') << endl;
 
     //SAME NAME FILE
-    assert(fs_create("user2", "password2", session, seq2++, "/Music/Music/Music", 'f') == 0);
+    cout << "should be 0: " << fs_create("user2", "password2", session, seq2++, "/Music/Music/Music", 'f') << endl;
 
     //CREATE MULTIPLE DIRECTORIES
-    assert(fs_create("user2", "password2", session, seq2++, "/Music/Music/HipHop/Dre", 'd') == -1);    
+    cout << "should be -1: " << fs_create("user2", "password2", session, seq2++, "/Music/Music/HipHop/Dre", 'd') << endl;    
 }
