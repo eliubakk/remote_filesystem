@@ -9,6 +9,7 @@ test_fs_session.cc
 test_fs_simple_rw.cc
 test_inode_bookkeeping.cc
 test_malformed_filenames.cc
+test_multi_thread.cc
 test_rw_from_dir.cc
 test_rw_multiple_file_blocks.cc
 test_spec.cc
