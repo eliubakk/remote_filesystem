@@ -28,6 +28,7 @@ int main(int argc, char *argv[]){
     cout << "should be -1: " << fs_create("user1", "password1", session, seq++, "user1Home/noStartingSlash", 'f') << endl;
     cout << "should be -1: " << fs_create("user1", "password1", session, seq++, "/user1Home/endingSlash/", 'f') << endl;
     cout << "should be -1: " << fs_create("user1", "password1", session, seq++, "//user1Home/doubleStartingSlash", 'f') << endl;
+    cout << "should be -1: " << fs_create("user1", "password1", session, seq++, "/user1Home//doubleSlashInMiddle", 'f') << endl;
     cout << "should be -1: " << fs_create("user1", "password1", session, seq++, "/user1Home/space inFilename", 'f') << endl;
     cout << "should be 0: " << fs_create("user1", "password1", session, seq++, "/user1Home/symbols!@#$%^&*()+-=?><,.~`{}[]|';:_", 'f') << endl;
     

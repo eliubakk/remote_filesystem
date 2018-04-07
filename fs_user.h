@@ -10,6 +10,7 @@
 #include <sys/types.h>
 #include <string>
 #include <unordered_map>
+#include <mutex>
 #include "fs_server.h"
 #include "fs_param.h"
 
@@ -18,7 +19,8 @@ class fs_user{
 		char name[FS_MAXUSERNAME + 1];
 		char pw[FS_MAXPASSWORD + 1];
 		std::unordered_map<unsigned int, unsigned int> sessions;
-
+		std::mutex user_lock;
+		static std::mutex session_lock;
 		static unsigned int SESSION_ID;
 
 	public:

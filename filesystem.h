@@ -14,6 +14,7 @@
 #include <vector>
 #include <bitset>
 #include <queue>
+#include <mutex>
 #include "fs_user.h"
 #include "fs_server.h"
 
@@ -45,6 +46,7 @@ class filesystem{
 		};
 
 		std::unordered_map<std::string, fs_user*> users;
+		std::mutex internal_lock;
 		std::queue<unsigned int> free_blocks;
 		pthread_rwlock_t block_lock[FS_DISKSIZE];
 		void send_response(int client, const char *username, std::vector<std::string>& request_args);

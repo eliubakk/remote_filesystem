@@ -2,7 +2,6 @@
 #include <cstdlib>
 #include <cstring>
 #include <thread>
-#include <pthread.h>
 #include "fs_client.h"
 
 using namespace std;
@@ -21,13 +20,13 @@ int main(int argc, char *argv[]){
 
     fs_clientinit(server, server_port);
 
-    thread session1(fs_session, "user1", "password1", session, seq++);
+    thread session1(fs_session, "user1", "password1", &session, seq++);
     session1.detach();
-    thread session2(fs_session, "user2", "password2", session, seq2++);
+    thread session2(fs_session, "user2", "password2", &session, seq2++);
     session2.detach();
-    thread session3(fs_session, "user3", "password3", session, seq3++);
+    thread session3(fs_session, "user3", "password3", &session, seq3++);
     session3.detach();
-    thread session4(fs_session, "user4", "password4", session, seq4++);
+    thread session4(fs_session, "user4", "password4", &session, seq4++);
     session4.detach();
 
     thread session5(fs_create, "user1", "password1", session, seq++, "/home", 'd');
