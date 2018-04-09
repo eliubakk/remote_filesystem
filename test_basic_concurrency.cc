@@ -41,12 +41,11 @@ int main(int argc, char *argv[]){
     fs_clientinit(server, server_port);
 
     thread first(thread_func);
-    first.detach();
     thread second(thread_func);
-    second.detach();
     thread third(thread_func);
-    third.detach();
-
+    first.join();
+    second.join();
+    third.join();
     cout << "threads finished" << endl;
     return 0;
 }
