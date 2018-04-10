@@ -103,7 +103,20 @@ void request_handler(filesystem* fs, int client){
 		close(client);
 		return;
 	}
-	unsigned int encrypted_size = stoi(request_size);
+	//? probably make sure is digit?
+	if(request_size[INT_MAXDIGITS] != '\0'){
+		close(client);
+		return;
+	}
+	
+	//try catch if fail, also unsigned?
+	unsigned int encrypted_size = 0;
+	try{
+		encrypted_size = stoul(request_size);
+	} catch(...){
+		close(client);
+		return;
+	}
 
 	//Read in encrypted request
 	char encrypted_message[encrypted_size + 1];

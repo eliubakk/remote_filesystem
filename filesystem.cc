@@ -395,6 +395,9 @@ int filesystem::access_entry(const char *username, vector<string>& args){
 	}
 	char type = stoul(args[ACCESS_TYPE]) == READ ? 'r' : 'w';
 
+	if(stoul(args[BLOCK]) >= FS_MAXFILEBLOCKS){
+		return - 1;
+	}
 	//Recurse filesystem to make sure parent directory of file being read/written to exists
 	filesystem::recurse_args recurse_fs_args;
 	recurse_fs_args.disk_block = 0;
