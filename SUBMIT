@@ -3,6 +3,7 @@ test_create_directories_recursive.cc
 test_data_edgecases.cc
 test_ec_empty_read.cc
 test_ec_null_path.cc
+test_ec_outofbound.cc
 test_ec_session_id.cc
 test_ec_session_id2.cc
 test_ec_wrong_owner_assert.cc
