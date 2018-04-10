@@ -28,8 +28,8 @@ int main(int argc, char *argv[]){
     const char *message = "";
     char read_message[FS_BLOCKSIZE];
     memset(read_message, 0, FS_BLOCKSIZE);
-    assert(fs_writeblock("user1", "password1", session, ++seq, "/home/hw", 0, message) == -1);
-    assert(fs_readblock("user1", "password1", session, ++seq, "/home/hw", 0, read_message) == -1);
+    fs_writeblock("user1", "password1", session, ++seq, "/home/hw", 0, message);
+    fs_readblock("user1", "password1", session, ++seq, "/home/hw", 0, read_message);
 
     //READING AND WRITING OUT OF BOUNDS
     assert(fs_writeblock("user1", "password1", session, ++seq, "/home/hw", 125, message) == -1);
