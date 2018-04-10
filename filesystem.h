@@ -49,8 +49,9 @@ class filesystem{
 		std::mutex internal_lock;
 		std::queue<unsigned int> free_blocks;
 		pthread_rwlock_t block_lock[FS_DISKSIZE];
+
 		void send_response(int client, const char *username, std::vector<std::string>& request_args);
-		std::vector<std::string> split_request(const std::string &request, const std::string& token);
+		std::vector<std::string> split_request(const std::string &request, char token);
 		int new_session(const char* username, std::vector<std::string>& args);
 		int delete_entry(const char* username, std::vector<std::string>& args);
 		int create_entry(const char* username, std::vector<std::string>& args);
