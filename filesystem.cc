@@ -11,19 +11,20 @@
 using namespace std;
 
 typedef int (filesystem::*handler_func_t)(const char*, vector<string>&);
+#define MAX_REQUEST_NAME 13
 
+
+// ------------- For thread-safe output ------------- //
 template <typename T>
 static void print_debug_helper(T t) 
 {
     cout << t << endl;
 }
-
 template<typename T, typename... Args>
 static void print_debug_helper(T t, Args... args) {
     cout << t;
     print_debug_helper(args...);
 }
-
 template<typename T, typename... Args>
 static void print_debug(T t, Args... args) {
     cout_lock.lock();
@@ -31,7 +32,6 @@ static void print_debug(T t, Args... args) {
     print_debug_helper(args...);
     cout_lock.unlock();
 }
-
 template <typename T>
 static void print_debug(T t) 
 {
@@ -39,20 +39,21 @@ static void print_debug(T t)
     cout << "\nDEBUG: " << t << endl;
     cout_lock.unlock();
 }
+// ------------- For thread-safe output ------------- //
 
-#define MAX_REQUEST_NAME 13
 
 //Filesystem constructor
 filesystem::filesystem() {
 	bitset<FS_DISKSIZE> used(0);
+
+	//In case pre-existing filesystem existed, index new filesystem
 	index_disk(used);
 	
-	//Init free blocks, block zero is used for root
+	//Initialize free blocks, block zero is used for root
 	for(unsigned int i = 1; i < FS_DISKSIZE; ++i){
 		if(!used[i])
 			free_blocks.push(i);
 	}
-	//print_debug("FREE DISK BLOCKS: ", free_blocks.size());
 }
 
 
@@ -83,11 +84,15 @@ const char* filesystem::password(const string& username){
 	return users[username]->password();
 }
 
+
+// ----------------- REQUEST HANDLER ----------------- //
+// --- Makes proper handling call based on request --- //
 void filesystem::handle_request(int client, const char *username, char *request,
 							unsigned int request_size){
 	//Split apart request in a vector with " " as delimiter
 	handler_func_t handler = nullptr;
-	vector<string> request_args = split_request(request, " ");
+	vector<string> request_args = split_request(request, ' ');
+
 	char request_name[MAX_REQUEST_NAME + 1];
 	unsigned int num_request_args = 0;
 
@@ -119,7 +124,7 @@ void filesystem::handle_request(int client, const char *username, char *request,
 			handler = &filesystem::access_entry;
 			num_request_args = 7;
 
-			//Append write data to 'request_args' vector
+			//On write request, append write data to 'request_args' vector
 			request_args.push_back(to_string(WRITE));
 			char data[FS_BLOCKSIZE];
 			memcpy(data, request + request_size - FS_BLOCKSIZE, FS_BLOCKSIZE);
@@ -130,6 +135,7 @@ void filesystem::handle_request(int client, const char *username, char *request,
 			return;
 	};
 	
+	//If invalid request format, return
 	if(request_args.size() != num_request_args)
 		return;
 
@@ -137,6 +143,7 @@ void filesystem::handle_request(int client, const char *username, char *request,
 	if(strcmp(request_args[REQUEST_NAME].c_str(), request_name))
 		return;
 
+	//Call correct handler function, return without sending response on failure
 	if((this->*handler)(username, request_args) == -1)
 		return;
 
@@ -147,6 +154,9 @@ void filesystem::handle_request(int client, const char *username, char *request,
 	return;
 }
 
+
+// ----- INDEX FILESYSTEM ----- //
+//Recursively read in pre-existing filesystem data
 void filesystem::index_disk(bitset<FS_DISKSIZE>& used){
 	//root-node
 	fs_direntry root;
@@ -181,6 +191,7 @@ void filesystem::index_disk_helper(bitset<FS_DISKSIZE>& used, vector<fs_direntry
 	return index_disk_helper(used, dirs, false);
 }
 
+
 // ----- FS_SESSION() RESPONSE ----- //
 //Request format:  FS_SESSION <session> <sequence><NULL>
 //Response format: <size><NULL><session> <sequence><NULL>
@@ -194,6 +205,7 @@ int filesystem::new_session(const char *username, vector<string>& args){
 	}
 	return 0;
 }
+
 
 // ----- FS_CREATE() RESPONSE -----//
 //Request Format:  FS_CREATE <session> <sequence> <pathname> <type><NULL>
@@ -209,6 +221,7 @@ int filesystem::create_entry(const char *username, vector<string>& args){
 	}
 
 	internal_lock.lock();
+
 	//Find smallest free disk block for new entry's inode, mark it as used
 	if(free_blocks.empty()){
 		internal_lock.unlock();
@@ -218,6 +231,7 @@ int filesystem::create_entry(const char *username, vector<string>& args){
 	free_blocks.pop();
 	internal_lock.unlock();
 
+	//Recurse filesystem to find directory in which create will occur
 	filesystem::recurse_args recurse_fs_args;
 	recurse_fs_args.disk_block = 0;
 	print_debug(username, " trying to create entry: ", args[PATH]);
@@ -230,12 +244,13 @@ int filesystem::create_entry(const char *username, vector<string>& args){
 		return -1;
 	}
 	print_debug(username, " creating entry: ", args[PATH]);
-	
-	bool added_new_block = false;
+
 	//If new direntry for this new directory/file will require another data block in parent directory's inode...
+	bool added_new_block = false;
 	if (recurse_fs_args.inode->size <= recurse_fs_args.blocks_index) {
 		internal_lock.lock();
 		unsigned int next_disk_block;
+
 		//...find the smallest free disk block for parent directory's inode to use...
 		if(free_blocks.empty() || recurse_fs_args.inode->size == FS_MAXFILEBLOCKS){
 			free_blocks.push(new_entry_inode_block);
@@ -249,6 +264,7 @@ int filesystem::create_entry(const char *username, vector<string>& args){
 			free_blocks.pop();
 		}
 		internal_lock.unlock();
+
 		//Add new data block to inode, increment size of inode (# blocks in inode)
 		recurse_fs_args.inode->blocks[recurse_fs_args.inode->size] = next_disk_block;
 		recurse_fs_args.inode->size++;
@@ -277,7 +293,7 @@ int filesystem::create_entry(const char *username, vector<string>& args){
 	//Write inode of new directory/file to reserved disk block
 	disk_writeblock(new_entry_inode_block, &new_inode);
 
-	//update directory block to now include the new direntry
+	//Update directory block to now include the new direntry
 	//NOTE: this will be a brand new directory block if parent inode size increased
 	//		so we do not need to shadow.
 	disk_writeblock(recurse_fs_args.inode->blocks[recurse_fs_args.blocks_index], recurse_fs_args.folders);
@@ -286,8 +302,8 @@ int filesystem::create_entry(const char *username, vector<string>& args){
 	if(added_new_block)
 		disk_writeblock(recurse_fs_args.disk_block, recurse_fs_args.inode);
 
-	pthread_rwlock_unlock(&block_lock[recurse_fs_args.disk_block]);
 	//Delete new inode object created above
+	pthread_rwlock_unlock(&block_lock[recurse_fs_args.disk_block]);
 	delete recurse_fs_args.inode;
 	return 0;
 }
@@ -306,7 +322,7 @@ int filesystem::delete_entry(const char *username, vector<string>& args){
 		return -1;
 	}
 
-	//find file or folder to delete
+	//Find file or folder to delete
 	filesystem::recurse_args recurse_fs_args;
 	recurse_fs_args.disk_block = 0;
 	bool parent_dir_found = recurse_filesystem(username, args[PATH], recurse_fs_args, 'd');
@@ -318,13 +334,13 @@ int filesystem::delete_entry(const char *username, vector<string>& args){
 		return -1;
 	}
 
-	//read in dir inode
+	//Read in dir inode
 	fs_direntry dir_to_delete = recurse_fs_args.folders[recurse_fs_args.folder_index];
 	fs_inode inode_to_delete;
 	pthread_rwlock_wrlock(&block_lock[dir_to_delete.inode_block]);
 	disk_readblock(dir_to_delete.inode_block, &inode_to_delete);
 
-	//if inode is a non-empty directory or user is not owner, don't delete
+	//If inode is a non-empty directory or user is not owner, don't delete
 	if((inode_to_delete.type == 'd' && inode_to_delete.size != 0) ||
 		strcmp(inode_to_delete.owner, username)){
 		pthread_rwlock_unlock(&block_lock[dir_to_delete.inode_block]);
@@ -332,8 +348,8 @@ int filesystem::delete_entry(const char *username, vector<string>& args){
 		delete recurse_fs_args.inode;
 		return -1;
 	}
-
 	internal_lock.lock();
+
 	//if inode is a file, free all file blocks
 	if(inode_to_delete.type == 'f'){
 		for(unsigned int i = 0; i < inode_to_delete.size; ++i){
@@ -509,46 +525,62 @@ void filesystem::send_response(int client, const char *username, vector<string>&
 
 
 //Helper function, splits char * into segments delimited by 'token'
-vector<string> filesystem::split_request(const string& request, const string& token) {
-	vector<string> empty;
+vector<string> filesystem::split_request(const string& request, char token) {
+
 	vector<string> split;
-	if(request.size() <= 1){
-		return empty;
+
+	//If we are splitting a pathname, return empty vector if...
+	if (token == '/'){
+		//...the path does not begin with '/'.
+		if (request.front() != '/')
+			return split;
+
+		//...the path ends with '/'.
+		if (request.back() == '/')
+			return split;
+
+		//...the path contains any spaces.
+		if (request.find_first_of(" ") != string::npos)
+			return split;
+
+		//...the path contains "//"
+		if (request.find("//") != string::npos)
+			return split;
 	}
-	if(token == "/" && (request.front() != '/' || request.back() == '/' 
-		|| (request[0] == '/' && request[1] == '/'))){
-		return empty;
+
+	cout << "Path to be split: " << request << endl;
+
+	//Beginning and ending index of current entry
+	//If we are splitting a path, ignore '/' at start of path
+	int begin = (token == '/') ? 1 : 0;
+	auto end = (token == '/') ? request.find(token, 1) : request.find(token);
+
+	//If token does not appear in request (ignoring first '/' in a path)
+	if (end == string::npos) {
+		string only_entry = request.substr(begin, request.length());
+		split.push_back(only_entry);
 	}
-	ostringstream entry;
-	unsigned int count = 0;
-	for(unsigned int i = (token == "/")? 1 : 0; i < request.size(); ++i){
-		//path can't contain spaces
-		if(token == "/" && request[i] == ' '){
-			return empty;
-		}
-		if(request[i] == '\0'){
-			break;
-		}
-		if(token.find_first_of(request[i]) != string::npos){
-			if(count == 0 || (token == "/" && count > FS_MAXFILENAME)){
-				//two delimiters in a row, return
-				return empty;
-			}
-			split.push_back(entry.str());
-			entry.clear();
-			entry.str("");
-			count = 0;
-		}else{
-			entry << request[i];
-			++count;
+
+	//Split request by the token
+	while (end != string::npos) {
+		string next_entry = request.substr(begin, end-begin);
+		split.push_back(next_entry);
+
+		begin = ++end;
+		end = request.find(token, end);
+
+		//If this is the last entry, push_back before loop exits
+		if (end == string::npos) {
+			string last_entry = request.substr(begin, request.length());
+			split.push_back(last_entry);
 		}
 	}
 
-	if(count == 0 || (token == "/" && count > FS_MAXFILENAME)){
-		return empty;
-	}else{
-		split.push_back(entry.str());
+
+	for (int i = 0; i < int(split.size()); ++i) {
+		cout << "Split request #" << i << ": '" << split[i] << "'" << endl;
 	}
+
 	return split;
 }
 
@@ -558,7 +590,7 @@ bool filesystem::recurse_filesystem(const char *username, std::string& path, rec
 	args.inode = new fs_inode;
 
 	//Split given path into individual directories
-	vector<string> split_path = split_request(path, "/");
+	vector<string> split_path = split_request(path, '/');
 	if(split_path.size() == 0){
 		pthread_rwlock_rdlock(&block_lock[args.disk_block]);
 		return false;
@@ -624,6 +656,7 @@ bool filesystem::recurse_filesystem_helper(const char* username, std::vector<std
 	}
 	return false;
 }
+
 
 //WILL COMMMENT LATER
 bool filesystem::search_directory(recurse_args &args, const char* name){

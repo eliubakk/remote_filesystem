@@ -82,7 +82,6 @@ int main(int argc, char **argv){
 }
 
 //Request handler
-//MODIFIES, REQUIRES, EFFECTS......???? (do we want to do this again?)
 void request_handler(filesystem* fs, int client){
 	//Read username from cleartext request header
 	char username[FS_MAXUSERNAME + 1];
@@ -120,13 +119,13 @@ void request_handler(filesystem* fs, int client){
 		return;
 	}
 
+	//Call function to actually perform the create, read, write, or delete on the filesystem
 	fs->handle_request(client, username, decrypted_message, decrypted_size);
 	close(client);
 }
 
 
 //Helper function, read data from client into a buffer
-//MODIFIES, REQUIRES, EFFECTS......???? (do we want to do this again?)
 int read_bytes(int client, char* buf, unsigned int length, bool use_delim, char delim){
 	memset(buf, 0, length);
 	int return_val = -1;
