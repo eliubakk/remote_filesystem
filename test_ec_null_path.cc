@@ -20,5 +20,22 @@ int main(int argc, char *argv[]){
 
     fs_clientinit(server, server_port);
     fs_session("user1", "password1", &session, seq++);
-    assert(fs_create("user1", "password1", session, seq++, "/ho\0me", 'd') == -1);
+    //assert(fs_create("user1", "password1", session, seq++, "/ho\0me", 'd') == -1);
+    assert(fs_create("user1", "password1", session, seq++, "/ho me", 'd') == -1);
+
+    char message[FS_BLOCKSIZE];
+    char output[FS_BLOCKSIZE];
+    memset(message, 'A', FS_BLOCKSIZE);
+    memset(output, 0, FS_BLOCKSIZE);
+    message[3] = '\0';
+
+    fs_create("user1", "password1", session, seq++, "/hw", 'f');
+    fs_writeblock("user1", "password1", session, seq++, "/hw", 0, message);
+    fs_readblock("user1", "password1", session, seq++, "/hw", 0, output);
+
+    for (unsigned int i = 0; i < FS_BLOCKSIZE; ++i){
+        //cout << output[i];
+    }
+    //cout << endl;
+    cout << output << endl;
 }

@@ -23,6 +23,7 @@ int main(int argc, char *argv[]){
 
     fs_create("user1", "password1", session, seq++, "/home", 'd');
     fs_create("user1", "password1", session, seq++, "/home/hw", 'f');
+    fs_create("user1", "password1", session, seq++, "/home/hw2", 'f');
 
     //WRITING AN EMPTY STRING TO A BLOCK
     const char *message = "";
@@ -41,6 +42,12 @@ int main(int argc, char *argv[]){
     memset(read_message2, 0, FS_BLOCKSIZE);
     assert(fs_writeblock("user1", "password1", session, ++seq, "/home", 0, message2) == -1);
     assert(fs_readblock("user1", "password1", session, ++seq, "/home", 0, read_message2) == -1);
+
+    char message3[FS_BLOCKSIZE] = "";
+    char read_message3[FS_BLOCKSIZE];
+    memset(read_message3, 0, FS_BLOCKSIZE);
+    fs_writeblock("user1", "password1", session, ++seq, "/home/hw2", 0, message3);
+    fs_readblock("user1", "password1", session, ++seq, "/home/hw2", 0, read_message3);
 
     //WRONG PASSWORD
     assert(fs_create("user1", "password2", session, seq++, "/home/hw2", 'f') == -1);
