@@ -346,12 +346,15 @@ int filesystem::delete_entry(const char *username, vector<string>& args){
 	internal_lock.unlock();
 
 	//remove direntry from directory
-	memset((void*)&(recurse_fs_args.folders[recurse_fs_args.folder_index]), 0, sizeof(fs_direntry));
+	fs_direntry empty_dir;
+	empty_dir.inode_block = 0;
+	memset(empty_dir.name, 0, FS_MAXFILENAME + 1);
+	memcpy((void*)&(recurse_fs_args.folders[recurse_fs_args.folder_index]), (void*)&empty_dir, sizeof(fs_direntry));
 
 	//check if directory is empty
 	bool folder_block_empty = true;
 	for(unsigned int i = 0; i < FS_DIRENTRIES; ++i){
-		if (((char*)recurse_fs_args.folders + (i * sizeof(fs_direntry)))[0] != '\0'){
+		if (recurse_fs_args.folders[i].inode_block != 0){
 			folder_block_empty = false;
 			break;
 		}
@@ -557,6 +560,7 @@ bool filesystem::recurse_filesystem(const char *username, std::string& path, rec
 	//Split given path into individual directories
 	vector<string> split_path = split_request(path, "/");
 	if(split_path.size() == 0){
+		pthread_rwlock_rdlock(&block_lock[args.disk_block]);
 		return false;
 	}
 	//update path to be the name of the file/dir at end of path
@@ -632,7 +636,7 @@ bool filesystem::search_directory(recurse_args &args, const char* name){
 		disk_readblock(args.inode->blocks[i], args.folders);
 
 		for(unsigned int j = 0; j < FS_DIRENTRIES; ++j){
-			if (args.folders[j].inode_block == 0/*((char*)args.folders + (j * sizeof(fs_direntry)))[0] == '\0'*/){
+			if (args.folders[j].inode_block == 0){
 				if(first_empty){
 					first_empty = false;
 					first_empty_dir_block = i;
