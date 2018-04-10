@@ -31,7 +31,6 @@ int main(int argc, char *argv[]){
     fs_create("user1", "password1", session, seq++, "/message", 'f');
     for(unsigned int block = 0; block < FS_MAXFILEBLOCKS; ++block){
         fs_writeblock("user1", "password1", session, seq++, "/message", block, writedata);
-        ++data;
         memset(writedata, data, FS_BLOCKSIZE);
     }
     
@@ -41,7 +40,6 @@ int main(int argc, char *argv[]){
         for(unsigned int i = 0; i < FS_BLOCKSIZE; ++i){
             assert(readdata[i] == data);
         }
-        ++data;
     }
 
     assert(fs_writeblock("user1", "password1", session, seq++, "/message", FS_MAXFILEBLOCKS, writedata) == -1);

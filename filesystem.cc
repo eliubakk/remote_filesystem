@@ -52,7 +52,7 @@ filesystem::filesystem() {
 		if(!used[i])
 			free_blocks.push(i);
 	}
-	print_debug("FREE DISK BLOCKS: ", free_blocks.size());
+	//print_debug("FREE DISK BLOCKS: ", free_blocks.size());
 }
 
 
@@ -154,7 +154,7 @@ void filesystem::index_disk(bitset<FS_DISKSIZE>& used){
 
 	vector<fs_direntry> dirs;
 	dirs.push_back(root);
-	index_disk_helper(used, dirs, false);
+	index_disk_helper(used, dirs, true);
 }
 
 void filesystem::index_disk_helper(bitset<FS_DISKSIZE>& used, vector<fs_direntry> &dirs, bool is_root){
@@ -164,7 +164,7 @@ void filesystem::index_disk_helper(bitset<FS_DISKSIZE>& used, vector<fs_direntry
 	fs_direntry dir = dirs.back();
 	dirs.pop_back();
 	if(dir.inode_block == 0 && !is_root){
-		return index_disk_helper(used, dirs, true);
+		return index_disk_helper(used, dirs, false);
 	}
 
 	used[dir.inode_block] = 1;
@@ -632,7 +632,7 @@ bool filesystem::search_directory(recurse_args &args, const char* name){
 		disk_readblock(args.inode->blocks[i], args.folders);
 
 		for(unsigned int j = 0; j < FS_DIRENTRIES; ++j){
-			if (((char*)args.folders + (j * sizeof(fs_direntry)))[0] == '\0'){
+			if (args.folders[j].inode_block == 0/*((char*)args.folders + (j * sizeof(fs_direntry)))[0] == '\0'*/){
 				if(first_empty){
 					first_empty = false;
 					first_empty_dir_block = i;

@@ -34,7 +34,7 @@ unsigned int fs_user::create_session(unsigned int seq){
 //Check if sequence # for this ID is valid, if so update the sequence # of this session
 bool fs_user::session_request(unsigned int ID, unsigned int seq){
 	user_lock.lock();
-	if (sessions.find(ID) != sessions.end() || sessions[ID] >= seq){
+	if (sessions.find(ID) == sessions.end() || sessions[ID] >= seq){
 		user_lock.unlock();
 		return false;
 	}
