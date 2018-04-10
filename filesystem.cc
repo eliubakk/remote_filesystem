@@ -150,22 +150,21 @@ void filesystem::handle_request(int client, const char *username, char *request,
 void filesystem::index_disk(bitset<FS_DISKSIZE>& used){
 	//root-node
 	fs_direntry root;
-	strcpy(root.name, "root");
 	root.inode_block = 0;
 
 	vector<fs_direntry> dirs;
 	dirs.push_back(root);
-	index_disk_helper(used, dirs);
+	index_disk_helper(used, dirs, false);
 }
 
-void filesystem::index_disk_helper(bitset<FS_DISKSIZE>& used, vector<fs_direntry> &dirs){
+void filesystem::index_disk_helper(bitset<FS_DISKSIZE>& used, vector<fs_direntry> &dirs, bool is_root){
 	if(dirs.empty())
 		return;
 
 	fs_direntry dir = dirs.back();
 	dirs.pop_back();
-	if(((char*)&dir)[0] == '\0'){
-		return index_disk_helper(used, dirs);
+	if(dir.inode_block == 0 && !is_root){
+		return index_disk_helper(used, dirs, true);
 	}
 
 	used[dir.inode_block] = 1;
@@ -179,7 +178,7 @@ void filesystem::index_disk_helper(bitset<FS_DISKSIZE>& used, vector<fs_direntry
 			dirs.insert(dirs.end(), folders, folders + FS_DIRENTRIES);
 		}
 	}
-	return index_disk_helper(used, dirs);
+	return index_disk_helper(used, dirs, false);
 }
 
 // ----- FS_SESSION() RESPONSE ----- //
