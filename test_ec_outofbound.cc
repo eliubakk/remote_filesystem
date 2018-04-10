@@ -27,6 +27,7 @@ int main(int argc, char *argv[]){
     //WRITING AN EMPTY STRING TO A BLOCK
     const char *message = "";
     char read_message[FS_BLOCKSIZE];
+    memset(read_message, 0, FS_BLOCKSIZE);
     assert(fs_writeblock("user1", "password1", session, ++seq, "/home/hw", 0, message) == -1);
     assert(fs_readblock("user1", "password1", session, ++seq, "/home/hw", 0, read_message) == -1);
 
@@ -37,6 +38,7 @@ int main(int argc, char *argv[]){
     //WRITING AND READING A DIRECTORY
     const char *message2 = "Hi :)";
     char read_message2[FS_BLOCKSIZE];
+    memset(read_message2, 0, FS_BLOCKSIZE);
     assert(fs_writeblock("user1", "password1", session, ++seq, "/home", 0, message2) == -1);
     assert(fs_readblock("user1", "password1", session, ++seq, "/home", 0, read_message2) == -1);
 
