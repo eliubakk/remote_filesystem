@@ -20,7 +20,7 @@ int main(int argc, char *argv[]){
 
     fs_clientinit(server, server_port);
     fs_session("user1", "password1", &session, seq++);
-    //assert(fs_create("user1", "password1", session, seq++, "/ho\0me", 'd') == -1);
+    fs_create("user1", "password1", session, seq++, "/ho\0me", 'd');
     assert(fs_create("user1", "password1", session, seq++, "/ho me", 'd') == -1);
 
     char message[FS_BLOCKSIZE];
