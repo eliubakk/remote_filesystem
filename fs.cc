@@ -85,25 +85,32 @@ int main(int argc, char **argv){
 void request_handler(filesystem* fs, int client){
 	//Read username from cleartext request header
 	char username[FS_MAXUSERNAME + 1];
-	if(!read_bytes(client, username, sizeof(username), true, ' ')){
+	memset(username, 0, sizeof(username));
+	char header[FS_MAXUSERNAME + 1 + INT_MAXDIGITS + 1];
+	memset(header, 0, sizeof(header));	
+	char request_size[INT_MAXDIGITS + 1];
+	memset(request_size, 0, sizeof(request_size));
+
+	if(!read_bytes(client, header, sizeof(header), true)){
 		close(client);
 		return;
 	}
-
+	char* username_end = nullptr;
+	if (header[FS_MAXUSERNAME + 1 + INT_MAXDIGITS] != '\0'){
+		close(client);
+		return;
+	}
+	else{
+		username_end = strchr(header, ' ');
+		if (username_end == nullptr || (username_end - header) > FS_MAXUSERNAME){
+			close(client);
+			return;
+		}
+	}
+	memcpy((void*)username, (void*)header, (unsigned int)(username_end - header));
+	strcpy(request_size, username_end + 1);
 	//Close connection if user does not exist in filesystem
 	if(!fs->user_exists(username)){
-		close(client);
-		return;
-	}
-
-	//Read size of encrypted request from cleartext request header
-	char request_size[INT_MAXDIGITS + 1];
-	if(!read_bytes(client, request_size, sizeof(request_size), true)){
-		close(client);
-		return;
-	}
-	//? probably make sure is digit?
-	if(request_size[INT_MAXDIGITS] != '\0'){
 		close(client);
 		return;
 	}
@@ -119,7 +126,10 @@ void request_handler(filesystem* fs, int client){
 
 	//Read in encrypted request
 	char encrypted_message[encrypted_size + 1];
-	read_bytes(client, encrypted_message, encrypted_size);
+	if (!read_bytes(client, encrypted_message, encrypted_size)){
+		close(client);
+		return;
+	}
 
 	//Decrypt request
 	unsigned int decrypted_size = 0;
@@ -142,12 +152,16 @@ void request_handler(filesystem* fs, int client){
 int read_bytes(int client, char* buf, unsigned int length, bool use_delim, char delim){
 	memset(buf, 0, length);
 	int return_val = -1;
-	for (unsigned int i = 0; i < length && return_val != 0; ++i){
+	unsigned int i = 0;
+	for (i = 0; i < length && return_val != 0; ++i){
 		return_val = read(client, buf + i, 1);
 		if (use_delim && buf[i] == delim){
 			buf[i] = '\0';
 			break;
 		}
+	}
+	if (!use_delim){
+		return i == length;
 	}
 	return return_val;
 }

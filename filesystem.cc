@@ -402,6 +402,7 @@ int filesystem::delete_entry(const char *username, vector<string>& args){
 //Response Format: <size><NULL><session> <sequence><NULL>
 int filesystem::access_entry(const char *username, vector<string>& args){
 	//Check validity of session/sequence
+	print_debug("Entered access_entry");
 	try{
 		if (!users[username]->session_request(stoul(args[SESSION]),
 											  stoul(args[SEQUENCE])))
@@ -531,6 +532,7 @@ void filesystem::send_response(int client, const char *username, vector<string>&
 vector<string> filesystem::split_request(const string& request, char token) {
 
 	vector<string> split;
+	vector<string> empty;
 
 	//If we are splitting a pathname, return empty vector if...
 	if (token == '/'){
@@ -551,7 +553,7 @@ vector<string> filesystem::split_request(const string& request, char token) {
 			return split;
 	}
 
-	cout << "Path to be split: " << request << endl;
+	//print_debug("Path to be split: ", request);
 
 	//Beginning and ending index of current entry
 	//If we are splitting a path, ignore '/' at start of path
@@ -561,12 +563,20 @@ vector<string> filesystem::split_request(const string& request, char token) {
 	//If token does not appear in request (ignoring first '/' in a path)
 	if (end == string::npos) {
 		string only_entry = request.substr(begin, request.length());
+
+		if (token == '/' && only_entry.size() > FS_MAXFILENAME)
+			return empty;
+
 		split.push_back(only_entry);
 	}
 
 	//Split request by the token
 	while (end != string::npos) {
 		string next_entry = request.substr(begin, end-begin);
+
+		if (token == '/' && next_entry.size() > FS_MAXFILENAME)
+			return empty;
+
 		split.push_back(next_entry);
 
 		begin = ++end;
@@ -575,13 +585,14 @@ vector<string> filesystem::split_request(const string& request, char token) {
 		//If this is the last entry, push_back before loop exits
 		if (end == string::npos) {
 			string last_entry = request.substr(begin, request.length());
+			if (token == '/' && last_entry.size() > FS_MAXFILENAME)
+				return empty;
 			split.push_back(last_entry);
 		}
 	}
 
-
 	for (int i = 0; i < int(split.size()); ++i) {
-		cout << "Split request #" << i << ": '" << split[i] << "'" << endl;
+		//print_debug("Split request #", i, ": '", split[i], "'");
 	}
 
 	return split;

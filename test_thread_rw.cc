@@ -22,7 +22,7 @@ int main(int argc, char *argv[]){
 
     thread session1(fs_session, "user1", "password1", &u1_session, seq++);
     thread session2(fs_session, "user2", "password2", &u2_session, seq2++);
-    thread session3(fs_session, "user3", "password3", &u2_session, seq3++);
+    thread session3(fs_session, "user3", "password3", &u3_session, seq3++);
     thread session4(fs_session, "user4", "password4", &u4_session, seq4++);
     session1.join();
     session2.join();
@@ -38,7 +38,7 @@ int main(int argc, char *argv[]){
     session7.join();
     session8.join();
     
-    /*char message[FS_BLOCKSIZE]; 
+    char message[FS_BLOCKSIZE]; 
     memset(message, 0, FS_BLOCKSIZE);
     strcpy(message, "Hello :)");
     strcpy(message + 9, "Bye :)");
@@ -53,70 +53,74 @@ int main(int argc, char *argv[]){
     memset(output4, 0, FS_BLOCKSIZE);
 
     thread session37(fs_writeblock, "user1", "password1", u1_session, seq++, "/hw1", 0, message);
-    thread session38(fs_writeblock, "user1", "password1", u1_session, seq++, "/hw1", 0, message);
-    thread session39(fs_writeblock, "user1", "password1", u1_session, seq++, "/hw1", 0, message);
-    thread session40(fs_writeblock, "user1", "password1", u1_session, seq++, "/hw1", 0, message);
-    thread session41(fs_writeblock, "user1", "password1", u1_session, seq++, "/hw1", 0, message);
-    thread session42(fs_writeblock, "user1", "password1", u1_session, seq++, "/hw1", 0, message);
-    thread session43(fs_writeblock, "user1", "password1", u1_session, seq++, "/hw1", 0, message);
-    thread session44(fs_writeblock, "user1", "password1", u1_session, seq++, "/hw1", 0, message);
-    thread session45(fs_writeblock, "user1", "password1", u1_session, seq++, "/hw1", 0, message);
-    thread session46(fs_writeblock, "user1", "password1", u1_session, seq++, "/hw1", 0, message);
-    thread session47(fs_writeblock, "user1", "password1", u1_session, seq++, "/hw1", 0, message);
-    thread session48(fs_writeblock, "user1", "password1", u1_session, seq++, "/hw1", 0, message);
+    //thread session38(fs_writeblock, "user1", "password1", u1_session, seq++, "/hw1", 1, message);
+    /*thread session39(fs_writeblock, "user1", "password1", u1_session, seq++, "/hw1", 2, message);
+    thread session40(fs_writeblock, "user1", "password1", u1_session, seq++, "/hw1", 3, message);
+    thread session41(fs_writeblock, "user1", "password1", u1_session, seq++, "/hw1", 4, message);
+    thread session42(fs_writeblock, "user1", "password1", u1_session, seq++, "/hw1", 5, message);
+    thread session43(fs_writeblock, "user1", "password1", u1_session, seq++, "/hw1", 6, message);
+    thread session44(fs_writeblock, "user1", "password1", u1_session, seq++, "/hw1", 7, message);
+    thread session45(fs_writeblock, "user1", "password1", u1_session, seq++, "/hw1", 8, message);
+    thread session46(fs_writeblock, "user1", "password1", u1_session, seq++, "/hw1", 9, message);
+    thread session47(fs_writeblock, "user1", "password1", u1_session, seq++, "/hw1", 10, message);
+    thread session48(fs_writeblock, "user1", "password1", u1_session, seq++, "/hw1", 11, message);*/
 
-    session37.detach();
-    session38.detach();
-    session39.detach();
-    session40.detach();
-    session41.detach();
-    session42.detach();
-    session43.detach();
-    session44.detach();
-    session45.detach();
-    session46.detach();
-    session47.detach();
-    session48.detach();
+    /*thread session49(fs_readblock, "user1", "password1", u1_session, seq++, "/hw1", 0, output1);
+    thread session50(fs_readblock, "user1", "password1", u1_session, seq++, "/hw1", 1, output1);
+    thread session51(fs_readblock, "user1", "password1", u1_session, seq++, "/hw1", 2, output1);
+    thread session52(fs_readblock, "user1", "password1", u1_session, seq++, "/hw1", 3, output1);
+    thread session53(fs_readblock, "user1", "password1", u1_session, seq++, "/hw1", 4, output1);
+    thread session54(fs_readblock, "user1", "password1", u1_session, seq++, "/hw1", 5, output1);
+    thread session55(fs_readblock, "user1", "password1", u1_session, seq++, "/hw1", 6, output1);
+    thread session56(fs_readblock, "user1", "password1", u1_session, seq++, "/hw1", 7, output1);
+    thread session57(fs_readblock, "user1", "password1", u1_session, seq++, "/hw1", 8, output1);
+    thread session58(fs_readblock, "user1", "password1", u1_session, seq++, "/hw1", 9, output1);
+    thread session59(fs_readblock, "user1", "password1", u1_session, seq++, "/hw1", 10, output1);
+    thread session60(fs_readblock, "user1", "password1", u1_session, seq++, "/hw1", 11, output1);
 
-    thread session49(fs_readblock, "user1", "password1", u1_session, seq++, "/hw1", 0, output1);
-    thread session50(fs_readblock, "user1", "password1", u2_session, seq++, "/hw1", 0, output1);
-    thread session51(fs_readblock, "user1", "password1", u3_session, seq++, "/hw1", 0, output1);
-    thread session52(fs_readblock, "user1", "password1", u4_session, seq++, "/hw1", 0, output1);
-    thread session53(fs_readblock, "user1", "password1", u1_session, seq++, "/hw1", 0, output1);
-    thread session54(fs_readblock, "user1", "password1", u2_session, seq++, "/hw1", 0, output1);
-    thread session55(fs_readblock, "user1", "password1", u3_session, seq++, "/hw1", 0, output1);
-    thread session56(fs_readblock, "user1", "password1", u4_session, seq++, "/hw1", 0, output1);
-    thread session57(fs_readblock, "user1", "password1", u1_session, seq++, "/hw1", 0, output1);
-    thread session58(fs_readblock, "user1", "password1", u2_session, seq++, "/hw1", 0, output1);
-    thread session59(fs_readblock, "user1", "password1", u3_session, seq++, "/hw1", 0, output1);
-    thread session60(fs_readblock, "user1", "password1", u4_session, seq++, "/hw1", 0, output1);
+    thread session61(fs_writeblock, "user2", "password2", u2_session, seq2++, "/hw2", 0, message);
+    thread session62(fs_writeblock, "user2", "password2", u2_session, seq2++, "/hw2", 1, message);
+    thread session63(fs_writeblock, "user2", "password2", u2_session, seq2++, "/hw2", 2, message);
+    thread session64(fs_writeblock, "user2", "password2", u2_session, seq2++, "/hw2", 3, message);
 
-    session37.detach();
-    session38.detach();
-    session39.detach();
-    session40.detach();
-    session41.detach();
-    session42.detach();
-    session43.detach();
-    session44.detach();
-    session45.detach();
-    session46.detach();
-    session47.detach();
-    session48.detach();
+    thread session65(fs_readblock, "user2", "password2", u2_session, seq2++, "/hw2", 0, output2);
+    thread session66(fs_readblock, "user2", "password2", u2_session, seq2++, "/hw2", 1, output2);
+    thread session67(fs_readblock, "user2", "password2", u2_session, seq2++, "/hw2", 2, output2);
+    thread session68(fs_readblock, "user2", "password2", u2_session, seq2++, "/hw2", 3, output2);*/
 
-    session49.detach();
-    session50.detach();
-    session51.detach();
-    session52.detach();
-    session53.detach();
-    session54.detach();
-    session55.detach();
-    session56.detach();
-    session57.detach();
-    session58.detach();
-    session59.detach();
-    session60.detach();
+    session37.join();
+    //session38.join();
+    /*session39.join();
+    session40.join();
+    session41.join();
+    session42.join();
+    session43.join();
+    session44.join();
+    session45.join();
+    session46.join();
+    session47.join();
+    session48.join();*/
 
-    for (int i = 0; i < 0xffff; ++i){
-    }  */
+    /*session49.join();
+    session50.join();
+    session51.join();
+    session52.join();
+    session53.join();
+    session54.join();
+    session55.join();
+    session56.join();
+    session57.join();
+    session58.join();
+    session59.join();
+    session60.join();
+
+    session61.join();
+    session62.join();
+    session63.join();
+    session64.join();
+
+    session65.join();
+    session66.join();
+    session67.join();
+    session68.join();*/    
 }

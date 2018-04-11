@@ -9,7 +9,7 @@ using namespace std;
 int main(int argc, char *argv[]){
     char *server;
     int server_port;
-    unsigned int session = 6, seq = 0;
+    unsigned int session = 6, session2 = 6, seq = 0, seq2 = 0;
 
     if (argc != 3) {
         cout << "error: usage: " << argv[0] << " <server> <serverPort>\n";
@@ -26,4 +26,7 @@ int main(int argc, char *argv[]){
     memset(output, 0, FS_BLOCKSIZE);
 
     assert(fs_readblock("user1", "password1", session, seq++, "/hw_sol", 0, output) == -1);
+
+    assert(fs_session("useruseruseruser", "password1", &session2, seq2++) == -1);
+    assert(fs_session("user1", "passwordpasswordpasswordpassword", &session2, seq2++) == -1);    
 }
