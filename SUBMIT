@@ -1,7 +1,5 @@
-test_basic_concurrency.cc
 test_create_directories_recursive.cc
 test_data_edgecases.cc
-test_ec_empty_read.cc
 test_ec_null_path.cc
 test_ec_outofbound.cc
 test_ec_session_id.cc
@@ -9,13 +7,8 @@ test_ec_session_id2.cc
 test_ec_wrong_owner_assert.cc
 test_ec_seq_samename_assert.cc
 test_fill_file.cc
-test_fs_create.cc
-test_fs_delete.cc
-test_fs_session.cc
-test_fs_simple_rw.cc
 test_inode_bookkeeping.cc
 test_malformed_filenames.cc
-test_multi_thread.cc
 test_rw_from_dir.cc
 test_rw_multiple_file_blocks.cc
 test_spec.cc

@@ -50,10 +50,12 @@ filesystem::filesystem() {
 	index_disk(used);
 	
 	//Initialize free blocks, block zero is used for root
+	internal_lock.lock();
 	for(unsigned int i = 1; i < FS_DISKSIZE; ++i){
 		if(!used[i])
 			free_blocks.push(i);
 	}
+	internal_lock.unlock();
 }
 
 
@@ -66,22 +68,30 @@ filesystem::~filesystem(){
 
 //Add user to internal filesystem
 bool filesystem::add_user(const string& username, const string& password){
-	if(users.find(username) != users.end())
+	if(user_exists(username))
 		return false;
+	internal_lock.lock();
 	users[username] = new fs_user(username.c_str(), password.c_str());
+	internal_lock.unlock();
 	return true;
 }
 
 
 //Check if user exists in filesystem
 bool filesystem::user_exists(const string& username){
-	return (users.find(username) != users.end());
+	internal_lock.lock();
+	bool exists = (users.find(username) != users.end());
+	internal_lock.unlock();
+	return exists; 
 }
 
 
 //Return password for given username
 const char* filesystem::password(const string& username){
-	return users[username]->password();
+	internal_lock.lock();
+	const char * pw = users[username]->password();
+	internal_lock.unlock();
+	return pw;
 }
 
 
@@ -91,7 +101,23 @@ void filesystem::handle_request(int client, const char *username, char *request,
 							unsigned int request_size){
 	//Split apart request in a vector with " " as delimiter
 	handler_func_t handler = nullptr;
-	vector<string> request_args = split_request(request, ' ');
+	unsigned int req_size = request_size;
+	vector<string> request_args = split_request(request, ' ', req_size);
+
+	if (strcmp(request_args[REQUEST_NAME].c_str(), "FS_SESSION")) {
+		try{
+			internal_lock.lock();
+			if (!users[username]->session_request(stoul(request_args[SESSION]),
+											  stoul(request_args[SEQUENCE]))) {
+				internal_lock.unlock();
+				return;
+			}
+		} catch(...){
+			internal_lock.unlock();
+			return;
+		}
+		internal_lock.unlock();
+	}
 
 	char request_name[MAX_REQUEST_NAME + 1];
 	unsigned int num_request_args = 0;
@@ -125,9 +151,12 @@ void filesystem::handle_request(int client, const char *username, char *request,
 			num_request_args = 7;
 
 			//On write request, append write data to 'request_args' vector
+			if (request_size - req_size != FS_BLOCKSIZE) 
+				return;
+
 			request_args.push_back(to_string(WRITE));
 			char data[FS_BLOCKSIZE];
-			memcpy(data, request + request_size - FS_BLOCKSIZE, FS_BLOCKSIZE);
+			memcpy(data, request + req_size, FS_BLOCKSIZE);
 			request_args.emplace_back(data, FS_BLOCKSIZE);
 			break;
 
@@ -177,6 +206,9 @@ void filesystem::index_disk_helper(bitset<FS_DISKSIZE>& used, vector<fs_direntry
 		return index_disk_helper(used, dirs, false);
 	}
 
+	if (used[dir.inode_block] == 1 || dir.inode_block >= FS_DISKSIZE)
+		return;
+
 	used[dir.inode_block] = 1;
 	fs_inode node;
 	disk_readblock(dir.inode_block, &node);
@@ -199,8 +231,11 @@ int filesystem::new_session(const char *username, vector<string>& args){
 	//Given session # is meaningless, create new session ID with given sequence #
 	try{
 		unsigned int sequence = stoul(args[SEQUENCE]);
+		internal_lock.lock();
 		args[SESSION] = to_string(users[username]->create_session(sequence));
+		internal_lock.unlock();
 	} catch(...){
+		internal_lock.unlock();
 		return -1;
 	}
 	return 0;
@@ -211,14 +246,8 @@ int filesystem::new_session(const char *username, vector<string>& args){
 //Request Format:  FS_CREATE <session> <sequence> <pathname> <type><NULL>
 //Response Format: <size><NULL><session> <sequence><NULL>
 int filesystem::create_entry(const char *username, vector<string>& args){
-	//Check validity of session/sequence
-	try{
-		if (!users[username]->session_request(stoul(args[SESSION]),
-											  stoul(args[SEQUENCE])))
-			return -1;
-	} catch(...){
+	if (args[INODE_TYPE][0] != 'd' && args[INODE_TYPE][0] != 'f')
 		return -1;
-	}
 
 	internal_lock.lock();
 
@@ -239,7 +268,10 @@ int filesystem::create_entry(const char *username, vector<string>& args){
 
 	//Path provided in fs_create() is invalid
 	if(!parent_dir_found || args[PATH].size() > FS_MAXFILENAME){
-		pthread_rwlock_unlock(&block_lock[recurse_fs_args.disk_block]);
+		internal_lock.lock();
+		pthread_rwlock_t rwlock = block_lock[recurse_fs_args.disk_block];
+		internal_lock.unlock();
+		pthread_rwlock_unlock(&rwlock);
 		delete recurse_fs_args.inode;
 		return -1;
 	}
@@ -254,8 +286,9 @@ int filesystem::create_entry(const char *username, vector<string>& args){
 		//...find the smallest free disk block for parent directory's inode to use...
 		if(free_blocks.empty() || recurse_fs_args.inode->size == FS_MAXFILEBLOCKS){
 			free_blocks.push(new_entry_inode_block);
+			pthread_rwlock_t rwlock = block_lock[recurse_fs_args.disk_block];
 			internal_lock.unlock();
-			pthread_rwlock_unlock(&block_lock[recurse_fs_args.disk_block]);
+			pthread_rwlock_unlock(&rwlock);
 			delete recurse_fs_args.inode;
 			return -1;
 		}
@@ -303,7 +336,10 @@ int filesystem::create_entry(const char *username, vector<string>& args){
 		disk_writeblock(recurse_fs_args.disk_block, recurse_fs_args.inode);
 
 	//Delete new inode object created above
-	pthread_rwlock_unlock(&block_lock[recurse_fs_args.disk_block]);
+	internal_lock.lock();
+	pthread_rwlock_t rwlock = block_lock[recurse_fs_args.disk_block];
+	internal_lock.unlock();
+	pthread_rwlock_unlock(&rwlock);
 	delete recurse_fs_args.inode;
 	return 0;
 }
@@ -313,15 +349,6 @@ int filesystem::create_entry(const char *username, vector<string>& args){
 //Request Format:  FS_DELETE <session> <sequence> <pathname><NULL>
 //Response Format: <size><NULL><session> <sequence><NULL>
 int filesystem::delete_entry(const char *username, vector<string>& args){
-	//Check validity of session/sequence
-	try{
-		if (!users[username]->session_request(stoul(args[SESSION]),
-											  stoul(args[SEQUENCE])))
-			return -1;
-	} catch(...){
-		return -1;
-	}
-
 	//Find file or folder to delete
 	filesystem::recurse_args recurse_fs_args;
 	recurse_fs_args.disk_block = 0;
@@ -329,7 +356,10 @@ int filesystem::delete_entry(const char *username, vector<string>& args){
 
 	//Path provided in fs_delete() is invalid
 	if(!parent_dir_found){
-		pthread_rwlock_unlock(&block_lock[recurse_fs_args.disk_block]);
+		internal_lock.lock();
+		pthread_rwlock_t rwlock = block_lock[recurse_fs_args.disk_block];
+		internal_lock.unlock();
+		pthread_rwlock_unlock(&rwlock);
 		delete recurse_fs_args.inode;
 		return -1;
 	}
@@ -337,26 +367,32 @@ int filesystem::delete_entry(const char *username, vector<string>& args){
 	//Read in dir inode
 	fs_direntry dir_to_delete = recurse_fs_args.folders[recurse_fs_args.folder_index];
 	fs_inode inode_to_delete;
-	pthread_rwlock_wrlock(&block_lock[dir_to_delete.inode_block]);
+	internal_lock.lock();
+	pthread_rwlock_t wlock = block_lock[dir_to_delete.inode_block];
+	internal_lock.unlock();
+	pthread_rwlock_wrlock(&wlock);
 	disk_readblock(dir_to_delete.inode_block, &inode_to_delete);
 
 	//If inode is a non-empty directory or user is not owner, don't delete
 	if((inode_to_delete.type == 'd' && inode_to_delete.size != 0) ||
 		strcmp(inode_to_delete.owner, username)){
-		pthread_rwlock_unlock(&block_lock[dir_to_delete.inode_block]);
-		pthread_rwlock_unlock(&block_lock[recurse_fs_args.disk_block]);
+		internal_lock.lock();
+		pthread_rwlock_t rwlock1 = block_lock[dir_to_delete.inode_block];
+		pthread_rwlock_t rwlock2 = block_lock[recurse_fs_args.disk_block];
+		internal_lock.unlock();
+		pthread_rwlock_unlock(&rwlock1);
+		pthread_rwlock_unlock(&rwlock2);
 		delete recurse_fs_args.inode;
 		return -1;
 	}
-	internal_lock.lock();
 
+	internal_lock.lock();
 	//if inode is a file, free all file blocks
 	if(inode_to_delete.type == 'f'){
 		for(unsigned int i = 0; i < inode_to_delete.size; ++i){
 			free_blocks.push(inode_to_delete.blocks[i]);
 		}
 	}
-
 	//free inode block
 	free_blocks.push(dir_to_delete.inode_block);
 	internal_lock.unlock();
@@ -388,8 +424,13 @@ int filesystem::delete_entry(const char *username, vector<string>& args){
 		//write updated directory to disk
 		disk_writeblock(recurse_fs_args.inode->blocks[recurse_fs_args.blocks_index], recurse_fs_args.folders);
 	}
-	pthread_rwlock_unlock(&block_lock[dir_to_delete.inode_block]);
-	pthread_rwlock_unlock(&block_lock[recurse_fs_args.disk_block]);
+	internal_lock.lock();
+	pthread_rwlock_t rwlock1 = block_lock[dir_to_delete.inode_block];
+	pthread_rwlock_t rwlock2 = block_lock[recurse_fs_args.disk_block];
+	internal_lock.unlock();
+	pthread_rwlock_unlock(&rwlock1);
+	pthread_rwlock_unlock(&rwlock2);
+	delete recurse_fs_args.inode;
 	return 0;
 }
 
@@ -401,19 +442,14 @@ int filesystem::delete_entry(const char *username, vector<string>& args){
 //Request Format:  FS_WRITEBLOCK <session> <sequence> <pathname> <block><NULL><data>
 //Response Format: <size><NULL><session> <sequence><NULL>
 int filesystem::access_entry(const char *username, vector<string>& args){
-	//Check validity of session/sequence
-	print_debug("Entered access_entry");
-	try{
-		if (!users[username]->session_request(stoul(args[SESSION]),
-											  stoul(args[SEQUENCE])))
-			return -1;
-	} catch(...){
-		return -1;
-	}
 	char type = stoul(args[ACCESS_TYPE]) == READ ? 'r' : 'w';
 
-	if(stoul(args[BLOCK]) >= FS_MAXFILEBLOCKS){
-		return - 1;
+	try {
+		if(stoul(args[BLOCK]) >= FS_MAXFILEBLOCKS){
+			return -1;
+		}
+	} catch(...){
+		return -1;
 	}
 	//Recurse filesystem to make sure parent directory of file being read/written to exists
 	filesystem::recurse_args recurse_fs_args;
@@ -421,7 +457,10 @@ int filesystem::access_entry(const char *username, vector<string>& args){
 	bool parent_dir_found = recurse_filesystem(username, args[PATH], recurse_fs_args, type);
 
 	if (!parent_dir_found){
-		pthread_rwlock_unlock(&block_lock[recurse_fs_args.disk_block]);
+		internal_lock.lock();
+		pthread_rwlock_t rwlock = block_lock[recurse_fs_args.disk_block];
+		internal_lock.unlock();
+		pthread_rwlock_unlock(&rwlock);
 		delete recurse_fs_args.inode;
 		return -1;
 	}
@@ -429,16 +468,23 @@ int filesystem::access_entry(const char *username, vector<string>& args){
 	//Read in inode of file being read/written to
 	fs_inode file;
 	fs_direntry dir = recurse_fs_args.folders[recurse_fs_args.folder_index];
+	internal_lock.lock();
+	pthread_rwlock_t dir_lock = block_lock[dir.inode_block];
+	internal_lock.unlock();
 	if(type == 'r'){
-		pthread_rwlock_rdlock(&block_lock[dir.inode_block]);
+		pthread_rwlock_rdlock(&dir_lock);
 	}else{
-		pthread_rwlock_wrlock(&block_lock[dir.inode_block]);
+		pthread_rwlock_wrlock(&dir_lock);
 	}
+	internal_lock.lock();
+	pthread_rwlock_t rwlock = block_lock[recurse_fs_args.disk_block];
+	internal_lock.unlock();
+	pthread_rwlock_unlock(&rwlock);
+
 	disk_readblock(dir.inode_block, (void*)&file);
-	pthread_rwlock_unlock(&block_lock[recurse_fs_args.disk_block]);
 
 	if(file.type == 'd' || strcmp(file.owner, username)){
-		pthread_rwlock_unlock(&block_lock[dir.inode_block]);
+		pthread_rwlock_unlock(&dir_lock);
 		delete recurse_fs_args.inode;
 		return -1;
 	}
@@ -456,7 +502,7 @@ int filesystem::access_entry(const char *username, vector<string>& args){
 		}
 		//Invalid block number given
 		else{
-			pthread_rwlock_unlock(&block_lock[dir.inode_block]);
+			pthread_rwlock_unlock(&dir_lock);
 			delete recurse_fs_args.inode;
 			return -1;
 		}
@@ -475,7 +521,7 @@ int filesystem::access_entry(const char *username, vector<string>& args){
 			//Check to see if 1) there are any more free disk blocks and 2) this file can hold another block
 			if(free_blocks.empty() || file.size == FS_MAXFILEBLOCKS){
 				internal_lock.unlock();
-				pthread_rwlock_unlock(&block_lock[dir.inode_block]);
+				pthread_rwlock_unlock(&dir_lock);
 				delete recurse_fs_args.inode;
 				return -1;
 			}
@@ -490,12 +536,12 @@ int filesystem::access_entry(const char *username, vector<string>& args){
 			disk_writeblock(dir.inode_block, (void*)&file);
 		}
 		else{
-			pthread_rwlock_unlock(&block_lock[dir.inode_block]);
+			pthread_rwlock_unlock(&dir_lock);
 			delete recurse_fs_args.inode;
 			return -1;
 		}
 	}
-	pthread_rwlock_unlock(&block_lock[dir.inode_block]);
+	pthread_rwlock_unlock(&dir_lock);
 	delete recurse_fs_args.inode;
 	return 0;
 }
@@ -529,7 +575,7 @@ void filesystem::send_response(int client, const char *username, vector<string>&
 
 
 //Helper function, splits char * into segments delimited by 'token'
-vector<string> filesystem::split_request(const string& request, char token) {
+vector<string> filesystem::split_request(const string& request, char token, unsigned int& request_length) {
 
 	vector<string> split;
 	vector<string> empty;
@@ -553,7 +599,8 @@ vector<string> filesystem::split_request(const string& request, char token) {
 			return split;
 	}
 
-	//print_debug("Path to be split: ", request);
+	print_debug("Request to be split: ", request);
+	print_debug("Request length: ", request.length());
 
 	//Beginning and ending index of current entry
 	//If we are splitting a path, ignore '/' at start of path
@@ -587,6 +634,9 @@ vector<string> filesystem::split_request(const string& request, char token) {
 			string last_entry = request.substr(begin, request.length());
 			if (token == '/' && last_entry.size() > FS_MAXFILENAME)
 				return empty;
+
+			request_length = request.size() + 1;
+			print_debug("Calculated request_length: ", request_length);
 			split.push_back(last_entry);
 		}
 	}
@@ -604,18 +654,23 @@ bool filesystem::recurse_filesystem(const char *username, std::string& path, rec
 	args.inode = new fs_inode;
 
 	//Split given path into individual directories
-	vector<string> split_path = split_request(path, '/');
+	unsigned int path_size = path.size();
+	vector<string> split_path = split_request(path, '/', path_size);
+
+	internal_lock.lock();
+	pthread_rwlock_t rwlock = block_lock[args.disk_block];
+	internal_lock.unlock();
 	if(split_path.size() == 0){
-		pthread_rwlock_rdlock(&block_lock[args.disk_block]);
+		pthread_rwlock_rdlock(&rwlock);
 		return false;
 	}
 	//update path to be the name of the file/dir at end of path
 	path = split_path.back();
 
 	if(split_path.size() == 1 && (req_type == 'c' || req_type == 'd')){
-		pthread_rwlock_wrlock(&block_lock[args.disk_block]);
+		pthread_rwlock_wrlock(&rwlock);
 	}else{
-		pthread_rwlock_rdlock(&block_lock[args.disk_block]);
+		pthread_rwlock_rdlock(&rwlock);
 	}
 
 	//Traverse filesystem to find the correct parent directory
@@ -658,14 +713,17 @@ bool filesystem::recurse_filesystem_helper(const char* username, std::vector<std
 
 		//lock next inode: writer if at end of path and creating or deleteing
 		// else reader 
+		internal_lock.lock();
+		pthread_rwlock_t next_lock = block_lock[args.disk_block], last_lock = block_lock[old_disk_block];
+		internal_lock.unlock();
 		if(split_path.size()-1 == path_index && (req_type == 'c' || req_type == 'd')){
-			pthread_rwlock_wrlock(&block_lock[args.disk_block]);
+			pthread_rwlock_wrlock(&next_lock);
 		}else{
-			pthread_rwlock_rdlock(&block_lock[args.disk_block]);
+			pthread_rwlock_rdlock(&next_lock);
 		}
 
 		//unlock last inode
-		pthread_rwlock_unlock(&block_lock[old_disk_block]);
+		pthread_rwlock_unlock(&last_lock);
 		return recurse_filesystem_helper(username, split_path, path_index, args, req_type);
 	}
 	return false;

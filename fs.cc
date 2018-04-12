@@ -91,10 +91,18 @@ void request_handler(filesystem* fs, int client){
 	char request_size[INT_MAXDIGITS + 1];
 	memset(request_size, 0, sizeof(request_size));
 
-	if(!read_bytes(client, header, sizeof(header), true)){
-		close(client);
-		return;
+	unsigned int return_val = 0, i = 0;
+	for (i = 0; i < sizeof(header); ++i){
+		return_val = recv(client, header + i, 1, 0);
+		if (return_val == 0) {
+			close(client);
+			return;
+		}
+		if (header[i] == '\0'){
+			break;
+		}
 	}
+
 	char* username_end = nullptr;
 	if (header[FS_MAXUSERNAME + 1 + INT_MAXDIGITS] != '\0'){
 		close(client);
@@ -126,7 +134,8 @@ void request_handler(filesystem* fs, int client){
 
 	//Read in encrypted request
 	char encrypted_message[encrypted_size + 1];
-	if (!read_bytes(client, encrypted_message, encrypted_size)){
+	return_val = recv(client, encrypted_message, encrypted_size, MSG_WAITALL);
+	if (return_val < encrypted_size){
 		close(client);
 		return;
 	}
@@ -144,24 +153,8 @@ void request_handler(filesystem* fs, int client){
 
 	//Call function to actually perform the create, read, write, or delete on the filesystem
 	fs->handle_request(client, username, decrypted_message, decrypted_size);
+	delete[] decrypted_message;
 	close(client);
 }
 
 
-//Helper function, read data from client into a buffer
-int read_bytes(int client, char* buf, unsigned int length, bool use_delim, char delim){
-	memset(buf, 0, length);
-	int return_val = -1;
-	unsigned int i = 0;
-	for (i = 0; i < length && return_val != 0; ++i){
-		return_val = read(client, buf + i, 1);
-		if (use_delim && buf[i] == delim){
-			buf[i] = '\0';
-			break;
-		}
-	}
-	if (!use_delim){
-		return i == length;
-	}
-	return return_val;
-}
