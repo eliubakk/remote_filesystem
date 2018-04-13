@@ -52,7 +52,7 @@ filesystem::filesystem() {
 	
 	//Initialize free blocks, block zero is used for root
 	internal_lock.lock();
-	for(unsigned int i = 1; i < FS_DISKSIZE; ++i){
+	for(unsigned int i = 0; i < FS_DISKSIZE; ++i){
 		if(!used[i])
 			free_blocks.push_back(i);
 		pthread_rwlock_init(&block_lock[i], nullptr);
@@ -65,6 +65,9 @@ filesystem::filesystem() {
 filesystem::~filesystem(){
 	for(auto user : users)
 		delete user.second;
+	for (unsigned int i = 0; i < FS_DISKSIZE; ++i){
+		pthread_rwlock_destroy(&block_lock[i]);
+	}
 }
 
 
