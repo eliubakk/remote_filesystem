@@ -29,10 +29,50 @@ int main(int argc, char *argv[]){
     assert(fs_create("user1", "password1", session, seq++, "/msg", 'l') == -1);
     assert(fs_create("user1", "password1", session, seq++, "/msg", ' ') == -1);       
 
-    char dirname[14] = "/message0";
+    char dirname[10] = "/message0";
+
     for (unsigned int i = 0; i < FS_MAXFILEBLOCKS * 8; ++i){
-	strcpy(dirname + 9, to_string(i).c_str());
+	   strcpy(dirname + 8, to_string(i).c_str());
     	fs_create("user1", "password1", session, seq++, dirname, 'd');
     }
-    assert(fs_create("user1", "password1", session, seq++, "/shouldn'twork", 'd') == -1); 
+
+    char dirname2[19] = "/message0/message0";
+    for (unsigned int i = 0; i < FS_MAXFILEBLOCKS * 8; ++i){
+        strcpy(dirname2 + 17, to_string(i).c_str());
+        fs_create("user1", "password1", session, seq++, dirname2, 'd');
+    }
+
+    char dirname3[28] = "/message0/message0/message0";
+    for (unsigned int i = 0; i < FS_MAXFILEBLOCKS * 8; ++i){
+        strcpy(dirname3 + 26, to_string(i).c_str());
+        fs_create("user1", "password1", session, seq++, dirname3, 'd');
+    }
+
+    char dirname4[37] = "/message0/message0/message0/message0";
+    for (unsigned int i = 0; i < FS_MAXFILEBLOCKS * 8; ++i){
+        strcpy(dirname4 + 35, to_string(i).c_str());
+        fs_create("user1", "password1", session, seq++, dirname4, 'd');
+    }
+    //delete
+
+
+    for (unsigned int i = 0; i < FS_MAXFILEBLOCKS * 8; ++i){
+       strcpy(dirname + 8, to_string(i).c_str());
+        fs_delete("user1", "password1", session, seq++, dirname);
+    }
+
+    for (unsigned int i = 0; i < FS_MAXFILEBLOCKS * 8; ++i){
+        strcpy(dirname2 + 17, to_string(i).c_str());
+        fs_delete("user1", "password1", session, seq++, dirname2);
+    }
+
+    for (unsigned int i = 0; i < FS_MAXFILEBLOCKS * 8; ++i){
+        strcpy(dirname3 + 26, to_string(i).c_str());
+        fs_delete("user1", "password1", session, seq++, dirname3);
+    }
+
+    for (unsigned int i = 0; i < 664; ++i){
+        strcpy(dirname4 + 35, to_string(i).c_str());
+        fs_delete("user1", "password1", session, seq++, dirname4);
+    }
 }

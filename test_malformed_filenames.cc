@@ -31,7 +31,13 @@ int main(int argc, char *argv[]){
     cout << "should be -1: " << fs_create("user1", "password1", session, seq++, "/user1Home//doubleSlashInMiddle", 'f') << endl;
     cout << "should be -1: " << fs_create("user1", "password1", session, seq++, "/user1Home/space inFilename", 'f') << endl;
     cout << "should be 0: " << fs_create("user1", "password1", session, seq++, "/user1Home/symbols!@#$%^&*()+-=?><,.~`{}[]|';:_", 'f') << endl;
-    
+    cout << "should be -1: " << fs_create("user1", "password1", session, seq++, "/user1Home/space\tinFilename", 'f') << endl;
+    cout << "should be -1: " << fs_create("user1", "password1", session, seq++, "/user1Home/space\vinFilename", 'f') << endl;
+    cout << "should be -1: " << fs_create("user1", "password1", session, seq++, "/user1Home/space\finFilename", 'f') << endl;
+    cout << "should be -1: " << fs_create("user1", "password1", session, seq++, "/user1Home/space\rinFilename", 'f') << endl; 
+    cout << "should be -1: " << fs_create("user1", "password1", session, seq++, "/user1Home/space\ninFilename", 'f') << endl;
+    cout << "should be -1: " << fs_create("user1", "password1", session, seq++, " /user1Home/spaceinFilename", 'f') << endl;
+    //cout << "should be -1: " << fs_create("user1", "password1", session, seq++, " /user1Home/spaceinFilename ", 'f') << endl;     
     //This one should not work
     cout << "should be -1: " << fs_create("user1", "password1", session, seq++, "/user1Home/123456789012345678901234567890123456789012345678901234567890", 'f') << endl;
     //This one should work
