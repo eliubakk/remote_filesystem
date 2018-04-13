@@ -2,6 +2,7 @@
 #include <cstdlib>
 #include <cassert>
 #include <cstring>
+#include <string>
 #include "fs_client.h"
 
 using namespace std;
@@ -21,7 +22,16 @@ int main(int argc, char *argv[]){
     fs_clientinit(server, server_port);
     fs_session("user1", "password1", &session, seq++);
     fs_create("user1", "password1", session, seq++, "/ho\0me", 'd');
+    assert(fs_create("user1", "password1", session, seq++, "/EECS482EECS482EECS482EECS482EECS482EECS482EECS482", 'd') == 0);
+    assert(fs_create("user1", "password1", session, seq++, "/EECS482EECS482EECS482EECS482EECS482EECS482EECS482/EECS482EECS482EECS482EECS482EECS482EECS482EECS482", 'd') == 0);
+    string path = "/EECS482EECS482EECS482EECS482EECS482EECS482EECS482/EECS482EECS482EECS482EECS482EECS482EECS482EECS482/EECS482EECS482EECS482EECS48";
+    cout << "string length: " << path.size() << endl;
+    assert(fs_create("user1", "password1", session, seq++, "/EECS482EECS482EECS482EECS482EECS482EECS482EECS482/EECS482EECS482EECS482EECS482EECS482EECS482EECS482/EECS482EECS482EECS482EECS48", 'd') == 0);
+    assert(fs_create("user1", "password1", session, seq++, "/EECS482EECS482EECS482EECS482EECS482EECS482EECS482/EECS482EECS482EECS482EECS482EECS482EECS482EECS482/EECS482EECS482EECS482EECS482", 'd') == -1);
     assert(fs_create("user1", "password1", session, seq++, "/ho me", 'd') == -1);
+
+    assert(fs_create("user1", "password1", session, seq++, "/msg", 'l') == -1);
+    assert(fs_create("user1", "password1", session, seq++, "/msg", ' ') == -1); 
 
     char message[FS_BLOCKSIZE];
     char output[FS_BLOCKSIZE];
