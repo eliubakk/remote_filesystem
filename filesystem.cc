@@ -58,6 +58,7 @@ filesystem::filesystem() {
 		pthread_rwlock_init(&block_lock[i], nullptr);
 	}
 	internal_lock.unlock();
+	//print_debug("NUMBER OF FREE BLOCKS: ", free_blocks.size());
 }
 
 
@@ -200,21 +201,10 @@ void filesystem::index_disk(bitset<FS_DISKSIZE>& used){
 	fs_direntry root;
 	root.inode_block = 0;
 
-	vector<fs_direntry> dirs;
-	dirs.push_back(root);
-	index_disk_helper(used, dirs, true);
+	index_disk_helper(used, root);
 }
 
-void filesystem::index_disk_helper(bitset<FS_DISKSIZE>& used, vector<fs_direntry> &dirs, bool is_root){
-	if(dirs.empty())
-		return;
-
-	fs_direntry dir = dirs.back();
-	dirs.pop_back();
-	if(dir.inode_block == 0 && !is_root){
-		return index_disk_helper(used, dirs, false);
-	}
-
+void filesystem::index_disk_helper(bitset<FS_DISKSIZE>& used, fs_direntry dir){
 	if (used[dir.inode_block] == 1 || dir.inode_block >= FS_DISKSIZE)
 		return;
 
@@ -226,10 +216,13 @@ void filesystem::index_disk_helper(bitset<FS_DISKSIZE>& used, vector<fs_direntry
 		if(node.type == 'd'){
 			fs_direntry folders[FS_DIRENTRIES];
 			disk_readblock(node.blocks[i], folders);
-			dirs.insert(dirs.end(), folders, folders + FS_DIRENTRIES);
+			for(auto folder: folders){
+				if(folder.inode_block != 0){
+					index_disk_helper(used, folder);
+				}
+			}
 		}
 	}
-	return index_disk_helper(used, dirs, false);
 }
 
 

@@ -57,7 +57,7 @@ class filesystem{
 		int create_entry(const char* username, std::vector<std::string>& args);
 		int access_entry(const char* username, std::vector<std::string>& args);
 		void index_disk(std::bitset<FS_DISKSIZE>& used);
-		void index_disk_helper(std::bitset<FS_DISKSIZE>& used, std::vector<fs_direntry> &dirs, bool is_root);
+		void index_disk_helper(std::bitset<FS_DISKSIZE>& used, fs_direntry dirs);
 		bool recurse_filesystem(const char *username, std::string& path, recurse_args &args, char req_type);
 		bool recurse_filesystem_helper(const char* username, std::vector<std::string> &split_path, unsigned int path_index, recurse_args &args, char req_type);
 		bool search_directory(recurse_args &args, const char* name);
